@@ -187,7 +187,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
           )}
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
-          <div className="grid gap-4 py-4 flex-1 overflow-y-auto">
+          <div className="grid gap-4 py-4 flex-1 overflow-y-auto pr-4">
             <Card>
               <CardHeader>
                 <CardTitle>Informasi Pelanggan</CardTitle>
@@ -286,7 +286,7 @@ export default function ReceivablesReportPage() {
 
         // Filter for receivables: Shipped or Delivered status, but Unpaid
         const receivableOrders = allOrders.filter(order => 
-            (order.status === 'Shipped' || order.status === 'Delivered') && order.paymentStatus === 'Unpaid'
+            (order.status === 'Processing' || order.status === 'Shipped' || order.status === 'Delivered') && order.paymentStatus === 'Unpaid'
         );
 
         setAllReceivables(receivableOrders);
@@ -441,7 +441,9 @@ export default function ReceivablesReportPage() {
                         <Badge
                             variant="outline"
                             className={
-                                order.status === 'Delivered' ? 'text-green-600 border-green-600' : 'text-blue-600 border-blue-600'
+                                order.status === 'Delivered' ? 'text-green-600 border-green-600' : 
+                                order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                                'text-yellow-600 border-yellow-600'
                             }
                         >
                             {order.status}
@@ -467,3 +469,4 @@ export default function ReceivablesReportPage() {
     </div>
   );
 }
+
