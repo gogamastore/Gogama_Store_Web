@@ -25,11 +25,6 @@ interface Product {
   discountPrice?: string;
 }
 
-interface BestSeller {
-    productId: string;
-    totalSold: number;
-}
-
 interface Promotion {
     productId: string;
     discountPrice: number;
@@ -55,47 +50,22 @@ export default function TrendingPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
-    const fetchBestSellingProducts = useCallback(async () => {
+    const fetchTrendingProducts = useCallback(async () => {
         setLoading(true);
         try {
-            // Step 1: Fetch aggregated data from best_sellers collection
-            const bestSellersQuery = query(collection(db, "best_sellers"), orderBy("totalSold", "desc"), limit(100));
-            const bestSellersSnapshot = await getDocs(bestSellersQuery);
-            const bestSellerData = bestSellersSnapshot.docs.map(doc => doc.data() as BestSeller);
-
-            if (bestSellerData.length === 0) {
-                setAllProducts([]);
-                setLoading(false);
-                return;
-            }
-
-            const productIds = bestSellerData.map(item => item.productId);
-
-            // Step 2: Fetch product details for the best-selling products
-            // Firestore 'in' query is limited to 30 items per batch. We may need to chunk this.
-            const productChunks = [];
-            for (let i = 0; i < productIds.length; i += 30) {
-                productChunks.push(productIds.slice(i, i + 30));
-            }
-            
-            const productPromises = productChunks.map(chunk => 
-                getDocs(query(collection(db, "products"), where("__name__", "in", chunk)))
-            );
-            const productSnapshots = await Promise.all(productPromises);
-            
+            // Step 1: Fetch all products and map them
+            const productsSnapshot = await getDocs(collection(db, "products"));
             const productsMap = new Map<string, Product>();
-            productSnapshots.forEach(snapshot => {
-                snapshot.forEach(doc => {
-                    productsMap.set(doc.id, { 
-                        id: doc.id, 
-                        ...doc.data(),
-                        stock: doc.data().stock || 0,
-                        description: doc.data().description || ''
-                    } as Product);
-                });
+            productsSnapshot.forEach(doc => {
+                productsMap.set(doc.id, { 
+                    id: doc.id, 
+                    ...doc.data(),
+                    stock: doc.data().stock || 0,
+                    description: doc.data().description || ''
+                } as Product);
             });
 
-            // Step 3: Check for promotions
+            // Step 2: Fetch promotions
             const now = new Date();
             const promoQuery = query(collection(db, "promotions"), where("endDate", ">", now));
             const promoSnapshot = await getDocs(promoQuery);
@@ -107,22 +77,26 @@ export default function TrendingPage() {
                  }
             });
 
-            // Step 4: Combine all data
-            const finalProducts = bestSellerData.map(item => {
-                const product = productsMap.get(item.productId);
-                if (!product) return null;
-
-                if (activePromos.has(item.productId)) {
-                    product.isPromo = true;
-                    product.discountPrice = formatCurrency(activePromos.get(item.productId)!.discountPrice);
+            // Step 3: Fetch trending product IDs
+            const trendingSnapshot = await getDocs(collection(db, "trending_products"));
+            const trendingList = trendingSnapshot.docs.map(doc => {
+                const productId = doc.data().productId;
+                const product = productsMap.get(productId);
+                if (product) {
+                    // Check if the product has an active promo
+                    if (activePromos.has(product.id)) {
+                        product.isPromo = true;
+                        product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
+                    }
+                    return product;
                 }
-                return product;
+                return null;
             }).filter(p => p !== null) as Product[];
 
-            setAllProducts(finalProducts);
+            setAllProducts(trendingList);
 
         } catch(error) {
-            console.error("Failed to fetch best-selling products:", error);
+            console.error("Failed to fetch trending products:", error);
             toast({
                 variant: "destructive",
                 title: "Gagal memuat produk",
@@ -133,8 +107,8 @@ export default function TrendingPage() {
     }, [toast]);
     
     useEffect(() => {
-        fetchBestSellingProducts();
-    }, [fetchBestSellingProducts]);
+        fetchTrendingProducts();
+    }, [fetchTrendingProducts]);
 
     const filteredProducts = useMemo(() => {
         let filtered = allProducts;
@@ -162,11 +136,11 @@ export default function TrendingPage() {
     return (
         <section className="w-full py-6 md:py-10">
             <div className="container max-w-screen-2xl">
-                <h2 className="text-2xl font-bold font-headline mb-4 text-center">Produk Terlaris</h2>
+                <h2 className="text-2xl font-bold font-headline mb-4 text-center">Produk Trending</h2>
                 <div className="relative w-full md:max-w-lg mx-auto mb-6">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Cari produk terlaris..."
+                        placeholder="Cari produk trending..."
                         className="w-full pl-8"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -246,7 +220,7 @@ export default function TrendingPage() {
                     </>
                 ) : (
                     <div className="text-center py-10 text-muted-foreground">
-                        <p>Tidak ada data produk terlaris saat ini. Coba lagi nanti.</p>
+                        <p>Tidak ada produk trending yang ditemukan.</p>
                     </div>
                 )}
             </div>
