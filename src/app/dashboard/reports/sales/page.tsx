@@ -82,6 +82,7 @@ interface OrderProduct {
   quantity: number;
   price: number;
   image: string;
+  purchasePrice?: number; // Ensure this is part of the product data within an order
 }
 
 interface Order {
@@ -109,7 +110,7 @@ const formatCurrency = (amount: number) => {
 const processSalesDataForChart = (orders: Order[]) => {
     const salesByDate: { [key: string]: number } = {};
     orders.forEach(order => {
-        if (order.status === 'Delivered' || order.status === 'Shipped') {
+        if (order.status === 'Processing' || order.status === 'Shipped' || order.status === 'Delivered') {
              const date = new Date(order.date);
              if (isValid(date)) {
                 const formattedDate = format(date, 'd MMM', { locale: dateFnsLocaleId });
@@ -612,6 +613,12 @@ export default function SalesReportPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
+        const productDocs = await getDocs(collection(db, "products"));
+        const productMap = new Map<string, Product>();
+        productDocs.forEach(doc => {
+            productMap.set(doc.id, { id: doc.id, ...doc.data()} as Product);
+        });
+
       const querySnapshot = await getDocs(collection(db, "orders"));
       const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
           const data = orderDoc.data();
@@ -619,7 +626,6 @@ export default function SalesReportPage() {
               ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
               : typeof data.total === 'number' ? data.total : 0;
           
-          // Fetch customer details if not embedded
           let customerDetails = data.customerDetails;
           if (data.customerId && !customerDetails) {
               const userDocRef = doc(db, "user", data.customerId);
@@ -629,13 +635,22 @@ export default function SalesReportPage() {
               }
           }
 
+          // Embed purchasePrice into products
+          const productsWithCogs = data.products.map((p: OrderProduct) => {
+              const productInfo = productMap.get(p.productId);
+              return {
+                  ...p,
+                  purchasePrice: productInfo?.purchasePrice || 0
+              }
+          });
+
           return { 
               id: orderDoc.id, 
               ...data, 
               total,
               subtotal: data.subtotal || 0,
               shippingFee: data.shippingFee || 0,
-              products: data.products || [],
+              products: productsWithCogs,
               date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
               customerDetails 
           } as Order;
@@ -682,19 +697,29 @@ export default function SalesReportPage() {
     setFilteredOrders(todayOrders);
   };
 
-  const { totalRevenue, totalOrders, averageOrderValue, chartData } = useMemo(() => {
-    const validOrders = filteredOrders.filter(order => order.status === 'Delivered' || order.status === 'Shipped');
+  const { totalRevenue, totalOrders, grossProfit, totalCogs, chartData } = useMemo(() => {
+    const validOrders = filteredOrders.filter(order => ['Processing', 'Shipped', 'Delivered'].includes(order.status));
+    
     const revenue = validOrders.reduce((acc, order) => acc + order.total, 0);
     const ordersCount = validOrders.length;
-    const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
+    
+    const cogs = validOrders.reduce((acc, order) => {
+        const orderCogs = order.products.reduce((sum, p) => sum + ((p.purchasePrice || 0) * p.quantity), 0);
+        return acc + orderCogs;
+    }, 0);
+    
+    const profit = revenue - cogs;
+    
     const chartDataProcessed = processSalesDataForChart(filteredOrders);
+    
     return {
         totalRevenue: revenue,
         totalOrders: ordersCount,
-        averageOrderValue: avgValue,
+        grossProfit: profit,
+        totalCogs: cogs,
         chartData: chartDataProcessed
     };
-  }, [filteredOrders]);
+}, [filteredOrders]);
 
 
   if (loading) {
@@ -771,7 +796,7 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">Dari pesanan yang difilter (Shipped & Delivered)</p>
+            <p className="text-xs text-muted-foreground">HPP: {formatCurrency(totalCogs)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -781,17 +806,17 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-             <p className="text-xs text-muted-foreground">Pesanan dengan status Shipped & Delivered</p>
+             <p className="text-xs text-muted-foreground">Pesanan dengan status Diproses, Dikirim, & Selesai</p>
           </CardContent>
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rata-rata Nilai Pesanan</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Keuntungan (Laba Kotor)</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(averageOrderValue)}</div>
-            <p className="text-xs text-muted-foreground">Rata-rata nilai per transaksi</p>
+            <div className="text-2xl font-bold">{formatCurrency(grossProfit)}</div>
+            <p className="text-xs text-muted-foreground">Total Pendapatan - Total HPP</p>
           </CardContent>
         </Card>
       </div>
