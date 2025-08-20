@@ -1,52 +1,73 @@
-import Link from "next/link";
-import Image from "next/image";
-import type { Product } from "@/lib/placeholders";
+"use client";
+
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { LogOut, Settings, User } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
 
-interface ProductCardProps {
-  product: Product;
-}
+export function UserNav() {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
 
-export default function ProductCard({ product }: ProductCardProps) {
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
-    <Card className="flex flex-col h-full overflow-hidden transition-shadow duration-300 hover:shadow-lg">
-      <CardHeader className="p-0">
-        <Link href={`/products/${product.id}`} className="block">
-          <div className="aspect-video overflow-hidden">
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              width={600}
-              height={400}
-              className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
-              data-ai-hint={product.aiHint}
-            />
-          </div>
-        </Link>
-      </CardHeader>
-      <CardContent className="p-4 flex-grow">
-        <CardTitle className="text-lg font-headline mb-2">
-          <Link href={`/products/${product.id}`} className="hover:text-primary">
-            {product.name}
-          </Link>
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">{product.category}</p>
-      </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-between items-center">
-        <p className="text-xl font-bold text-primary">
-          ${product.resellerPrice.toFixed(2)}
-        </p>
-        <Button asChild>
-          <Link href={`/products/${product.id}`}>View Details</Link>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
+            <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
         </Button>
-      </CardFooter>
-    </Card>
-  );
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user.displayName || 'Admin'}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem>
+            <User className="mr-2 h-4 w-4" />
+            <span>Profile</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }

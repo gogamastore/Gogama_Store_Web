@@ -1,0 +1,154 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if a user has the 'admin' role
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Helper function to check if user is authenticated reseller
+    function isReseller() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'reseller';
+    }
+    
+    // Rules for user data (profiles)
+    match /user/{userId} {
+      // Users can read/update their own profile. Admins can manage any user.
+      allow read, update: if request.auth.uid == userId || isAdmin();
+      
+      // Admins can create new users (staff/resellers).
+      // Users can also create their own user document during registration.
+      allow create: if isAdmin() || request.auth.uid == userId;
+
+      // Admins can delete users from the database.
+      allow delete: if isAdmin();
+      
+      // Admins can list all users.
+      allow list: if isAdmin();
+    }
+
+    // Rules for 'products' collection
+    match /products/{productId} {
+    // Semua orang (termasuk tamu) bisa melihat produk.
+      allow get, list: if true;
+      allow update: if request.auth != null;
+    // Hanya admin yang bisa membuat, mengubah, atau menghapus produk.
+    // Mencegah pembeli mengubah harga/stok produk.
+      allow write: if isAdmin(); 
+    }
+    
+     // Rules for the 'orders' collection
+    match /orders/{orderId} {
+        // Admins can manage all orders. This includes listing them for reports.
+        allow read, delete: if isAdmin();
+
+        // Resellers can create orders for themselves
+        allow create: if request.auth.uid == request.resource.data.customerId;
+
+        // Resellers can only read their own orders.
+        allow get, list: if request.auth.uid == resource.data.customerId;
+        
+        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
+        allow update: if isAdmin() || (request.auth.uid == resource.data.customerId &&
+                        (request.resource.data.status == 'Cancelled' || 
+                         request.resource.data.paymentProofUrl != resource.data.paymentProofUrl));
+    }
+    match /payment_proofs/{proofId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Rules for 'whatsapp_contacts'
+    match /whatsapp_contacts/{contactId} {
+        // Any authenticated user can read the contacts.
+        allow get, list: if request.auth != null;
+        // Only admins can create, update, or delete contacts.
+        allow write, create, delete: if isAdmin();
+    }
+
+    // Rules for stock, purchases, and expenses (Admin-only)
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write, create, delete, list: if isAdmin();
+    }
+
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
+    
+     // Aturan baru untuk koleksi purchase_history
+    match /purchase_history/{historyId} {
+     allow read, create, update: if get(/databases/$(database)/documents/user/$
+     (request.auth.uid)).data.role == 'admin';
+     allow delete: if false;
+    }
+    
+    match /suppliers/{supplierId} {
+        allow read, write: if isAdmin();
+    }
+
+    match /operational_expenses/{expenseId} {
+      allow read, write, create, delete, list: if isAdmin();
+    }
+    
+    match /bank_accounts/{accountId} {
+        allow read: if request.auth != null;
+        allow write, create, delete: if isAdmin();
+    }
+    
+    match /user/{userId}/addresses/{addressId} {
+        // A user can manage their own addresses.
+        allow read, write, delete, create: if request.auth.uid == userId;
+    }
+    
+    // Rules for Banners (Design Settings)
+	match /banners/{bannerId} {
+  		allow read: if true;
+      	allow write, create, delete: if isAdmin();
+    }
+    
+    // Rules for Promotions (Promo Settings)
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
+    }
+    
+    // Rules for Brands (manajemen Brands)
+    match /brands/{brandId} {
+  // Siapa pun bisa membaca data merek.
+  allow read: if true;
+
+  // Hanya admin yang bisa membuat, mengubah, atau menghapus merek.
+  // Menggunakan fungsi isAdmin() agar lebih bersih dan konsisten.
+  allow write: if isAdmin();
+}
+    
+    // Rules for Trending Products
+    match /trending_products/{trendingId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
+    }
+    
+    // --- Aturan untuk Kategori Produk ---
+    match /product_categories/{categoryId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
+    }
+    
+    // Aturan Untuk Item Keranjang
+    match /user/{userId}/cart/{productId} {
+    allow read, write, delete, create: if request.auth.uid == userId;
+    }
+    // Aturan baru untuk koleksi notifications
+    match /notifications/{notificationId} {
+    allow create: if request.auth != null;
+    allow read: if get(/databases/$(database)/documents/user/$
+    (request.auth.uid)).data.role == 'admin';
+    allow update: if get(/databases/$(database)/documents/user/$
+    (request.auth.uid)).data.role == 'admin';
+    }
+  } 
+}

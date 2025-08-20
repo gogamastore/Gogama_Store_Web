@@ -1,32 +1,62 @@
-import ProductCard from "@/components/product-card";
-import { products } from "@/lib/placeholders";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 
-export default function Home() {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-bold font-headline text-primary">
-          Welcome to Toko Central
-        </h1>
-        <p className="text-muted-foreground mt-2 text-lg">
-          Your one-stop shop for wholesale and reseller products.
-        </p>
-        <div className="mt-4">
-          <Button asChild>
-            <Link href="/admin/dashboard">Go to Admin Dashboard</Link>
-          </Button>
-        </div>
-      </header>
-      <section>
-        <h2 className="text-3xl font-bold font-headline mb-6">Product Gallery</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-    </div>
-  );
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Loader2 } from "lucide-react";
+import LoginForm from "@/components/login-form";
+
+export default function RootPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    if (user) {
+      const checkRoleAndRedirect = async () => {
+        try {
+          const userDocRef = doc(db, "user", user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.role === 'reseller') {
+              router.replace('/reseller');
+            } else { // 'admin' or any other role
+              router.replace('/dashboard');
+            }
+          } else {
+            // If for some reason the user exists in Auth but not in Firestore,
+            // default them to dashboard. This might happen for the initial admin.
+            router.replace('/dashboard');
+          }
+        } catch (error) {
+          console.error("Error checking user role, defaulting to dashboard:", error);
+          // Fallback to dashboard in case of a Firestore error
+          router.replace('/dashboard');
+        }
+      };
+      
+      checkRoleAndRedirect();
+
+    } 
+    
+  }, [user, loading, router]);
+
+
+  if (loading || user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return <LoginForm />;
 }
