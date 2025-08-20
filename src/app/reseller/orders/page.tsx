@@ -206,8 +206,10 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
         pdfDoc.text(`Tanggal: ${format(order.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}`, 14, 37);
 
         let currentY = 37;
+        pdfDoc.text(`Status Pesanan: ${order.status}`, 14, currentY += 5);
+        pdfDoc.text(`Status Pembayaran: ${order.paymentStatus}`, 14, currentY += 5);
         pdfDoc.text(`Metode Pembayaran: ${order.paymentMethod === 'bank_transfer' ? 'Bank Transfer' : 'COD'}`, 14, currentY += 5);
-        pdfDoc.text(`Status Pembayaran: ${order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}`, 14, currentY += 5);
+        
 
         const tableColumn = ["Produk", "Jumlah", "Harga Satuan", "Subtotal"];
         const tableRows = order.products.map(prod => [

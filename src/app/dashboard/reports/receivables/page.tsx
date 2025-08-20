@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -64,6 +64,7 @@ interface FullOrder {
   customer: string;
   customerDetails?: { name: string; address: string; whatsapp: string };
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  paymentStatus: 'Paid' | 'Unpaid';
   total: number;
   subtotal: number;
   shippingFee: number;
@@ -175,14 +176,15 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
         <DialogHeader>
           <DialogTitle>Faktur #{order?.id}</DialogTitle>
           {order && (
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</span>
-                <Badge variant="outline" className={
+            <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                <div>Status Pesanan: <Badge variant="outline" className={
                     order.status === 'Delivered' ? 'text-green-600 border-green-600' :
                     order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
                     order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
                     order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
-                }>{order.status}</Badge>
+                }>{order.status}</Badge></div>
+                <Separator orientation="vertical" className="h-4"/>
+                <div>Status Pembayaran: <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus}</Badge></div>
             </div>
           )}
         </DialogHeader>
@@ -270,8 +272,9 @@ export default function ReceivablesReportPage() {
     const fetchReceivables = async () => {
       setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "orders"));
-        const allOrders = querySnapshot.docs.map(doc => {
+        const q = query(collection(db, "orders"), where("paymentStatus", "==", "Unpaid"), where("status", "in", ["Processing", "Shipped", "Delivered"]));
+        const querySnapshot = await getDocs(q);
+        const receivableOrders = querySnapshot.docs.map(doc => {
             const data = doc.data();
             const total = typeof data.total === 'string' 
                 ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
@@ -283,11 +286,6 @@ export default function ReceivablesReportPage() {
                 date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
             } as Order;
         });
-
-        // Filter for receivables: Shipped or Delivered status, but Unpaid
-        const receivableOrders = allOrders.filter(order => 
-            (order.status === 'Processing' || order.status === 'Shipped' || order.status === 'Delivered') && order.paymentStatus === 'Unpaid'
-        );
 
         setAllReceivables(receivableOrders);
         setFilteredReceivables(receivableOrders); // Initially show all receivables

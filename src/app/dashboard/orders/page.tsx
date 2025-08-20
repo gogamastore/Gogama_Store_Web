@@ -499,15 +499,17 @@ export default function OrdersPage() {
     pdf.setFont('helvetica', 'normal');
     pdf.text(`No. Pesanan: ${order.id}`, 14, 30);
     pdf.text(`Tanggal: ${format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}`, 14, 35);
+    pdf.text(`Status Pesanan: ${order.status}`, 14, 40);
+    pdf.text(`Status Pembayaran: ${order.paymentStatus}`, 14, 45);
     
     // Customer Details
-    pdf.text(`Kepada:`, 14, 45);
+    pdf.text(`Kepada:`, 14, 55);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(order.customerDetails?.name || order.customer, 14, 50);
+    pdf.text(order.customerDetails?.name || order.customer, 14, 60);
     pdf.setFont('helvetica', 'normal');
     const addressLines = pdf.splitTextToSize(order.customerDetails?.address || 'Alamat tidak tersedia', 90);
-    pdf.text(addressLines, 14, 55);
-    let currentY = 55 + (addressLines.length * 5);
+    pdf.text(addressLines, 14, 65);
+    let currentY = 65 + (addressLines.length * 5);
     pdf.text(`Telp/WA: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, currentY);
 
     // Products Table
@@ -583,6 +585,7 @@ export default function OrdersPage() {
           let currentY = 20;
 
           pdf.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, currentY += 10);
+          pdf.text(`Status: ${order.status} | Pembayaran: ${order.paymentStatus}`, 14, currentY += 5);
           
           const addressLines = pdf.splitTextToSize(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 180);
           pdf.text(addressLines, 14, currentY += 6);

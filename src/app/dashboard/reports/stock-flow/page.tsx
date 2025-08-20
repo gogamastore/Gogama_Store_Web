@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
@@ -78,6 +79,7 @@ interface FullOrder {
   customer: string;
   customerDetails?: { name: string; address: string; whatsapp: string };
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  paymentStatus: 'Paid' | 'Unpaid';
   total: number;
   subtotal: number;
   shippingFee: number;
@@ -284,13 +286,15 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
         pdfDoc.setFontSize(10);
         pdfDoc.text(`ID Pesanan: ${order.id}`, 14, 32);
         pdfDoc.text(`Tanggal: ${format(order.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}`, 14, 37);
+        pdfDoc.text(`Status Pesanan: ${order.status}`, 14, 42);
+        pdfDoc.text(`Status Pembayaran: ${order.paymentStatus}`, 14, 47);
     
         const customerInfo = order.customerDetails;
-        pdfDoc.text("Informasi Pelanggan:", 14, 47);
-        pdfDoc.text(`Nama: ${customerInfo?.name || order.customer}`, 14, 52);
+        pdfDoc.text("Informasi Pelanggan:", 14, 57);
+        pdfDoc.text(`Nama: ${customerInfo?.name || order.customer}`, 14, 62);
         const addressLines = pdfDoc.splitTextToSize(`Alamat: ${customerInfo?.address || 'N/A'}`, 180);
-        pdfDoc.text(addressLines, 14, 57);
-        let currentY = 57 + (addressLines.length * 5);
+        pdfDoc.text(addressLines, 14, 67);
+        let currentY = 67 + (addressLines.length * 5);
         pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, currentY + 5);
     
         const tableY = currentY + 15;
@@ -329,14 +333,15 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                  <DialogHeader>
                     <DialogTitle>Faktur #{order?.id}</DialogTitle>
                     {order && (
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</span>
-                            <Badge variant="outline" className={
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                             <div>Status Pesanan: <Badge variant="outline" className={
                                 order.status === 'Delivered' ? 'text-green-600 border-green-600' :
                                 order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
                                 order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
                                 order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
-                            }>{order.status}</Badge>
+                            }>{order.status}</Badge></div>
+                             <Separator orientation="vertical" className="h-4"/>
+                            <div>Status Pembayaran: <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus}</Badge></div>
                         </div>
                     )}
                 </DialogHeader>
@@ -783,3 +788,4 @@ export default function StockFlowReportPage() {
     </div>
   );
 }
+

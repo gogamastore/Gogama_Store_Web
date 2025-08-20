@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -44,7 +45,7 @@ interface Order {
   id: string;
   customer: string;
   customerId: string;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
   paymentStatus: 'Paid' | 'Unpaid';
   total: number;
   date: string;
@@ -66,6 +67,62 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
   }).format(amount);
 };
+
+function OrderHistoryDialog({ customerName, orders }: { customerName: string, orders: Order[] }) {
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <FileText className="h-4 w-4" />
+                    <span className="sr-only">Lihat Riwayat</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Riwayat Transaksi: {customerName}</DialogTitle>
+                    <DialogDescription>
+                        Semua transaksi yang dilakukan oleh pelanggan ini dalam periode yang dipilih.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto p-1">
+                    <div className="overflow-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Order ID</TableHead>
+                                    <TableHead>Tanggal</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Pembayaran</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {orders.map(order => (
+                                    <TableRow key={order.id}>
+                                        <TableCell className="font-medium">
+                                             <Button variant="link" asChild className="p-0 h-auto">
+                                                 {/* This could link to a more detailed order view if one exists */}
+                                                 <span className="cursor-pointer">{order.id.substring(0, 7)}...</span>
+                                             </Button>
+                                        </TableCell>
+                                        <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
+                                        <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
+                                        <TableCell>
+                                            <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>
+                                                {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function CustomersReportPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -221,52 +278,7 @@ export default function CustomersReportPage() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                    <Dialog>
-                                            <DialogTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <FileText className="h-4 w-4" />
-                                                    <span className="sr-only">Lihat Riwayat</span>
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
-                                                <DialogHeader>
-                                                    <DialogTitle>Riwayat Transaksi: {customer.name}</DialogTitle>
-                                                    <DialogDescription>
-                                                        Semua transaksi yang dilakukan oleh pelanggan ini dalam periode yang dipilih.
-                                                    </DialogDescription>
-                                                </DialogHeader>
-                                                <div className="flex-1 overflow-y-auto p-1">
-                                                    <div className="overflow-auto">
-                                                        <Table>
-                                                            <TableHeader>
-                                                                <TableRow>
-                                                                    <TableHead>Order ID</TableHead>
-                                                                    <TableHead>Tanggal</TableHead>
-                                                                    <TableHead>Status</TableHead>
-                                                                    <TableHead>Pembayaran</TableHead>
-                                                                    <TableHead className="text-right">Total</TableHead>
-                                                                </TableRow>
-                                                            </TableHeader>
-                                                            <TableBody>
-                                                                {customer.orders.map(order => (
-                                                                    <TableRow key={order.id}>
-                                                                        <TableCell className="font-medium">
-                                                                             <Button variant="link" asChild className="p-0 h-auto">
-                                                                                 <span className="cursor-pointer">{order.id}</span>
-                                                                             </Button>
-                                                                        </TableCell>
-                                                                        <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
-                                                                        <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
-                                                                        <TableCell><Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}</Badge></TableCell>
-                                                                        <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                                                                    </TableRow>
-                                                                ))}
-                                                            </TableBody>
-                                                        </Table>
-                                                    </div>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
+                                        <OrderHistoryDialog customerName={customer.name} orders={customer.orders} />
                                     </TableCell>
                                 </TableRow>
                                 ))
