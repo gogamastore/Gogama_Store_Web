@@ -87,7 +87,7 @@ export default function ProductCard({ product, showStockProgress = false }: { pr
         </div>
         <Button variant="outline" size="sm" className="w-full mt-3" onClick={handleAddToCart} disabled={product.stock === 0}>
             <ShoppingCart className="mr-2 h-4 w-4"/>
-            {product.stock > 0 ? "Tambah ke Keranjang" : "Stok Habis"}
+            {product.stock > 0 ? "Tambah" : "Stok Habis"}
         </Button>
       </CardContent>
     </Card>
