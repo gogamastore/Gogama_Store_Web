@@ -284,9 +284,9 @@ export default function ReceivablesReportPage() {
             } as Order;
         });
 
-        // Filter for receivables: Processing, Shipped or Delivered status, but Unpaid
+        // Filter for receivables: Shipped or Delivered status, but Unpaid
         const receivableOrders = allOrders.filter(order => 
-            (order.status === 'Processing' || order.status === 'Shipped' || order.status === 'Delivered') && order.paymentStatus === 'Unpaid'
+            (order.status === 'Shipped' || order.status === 'Delivered') && order.paymentStatus === 'Unpaid'
         );
 
         setAllReceivables(receivableOrders);
@@ -441,9 +441,7 @@ export default function ReceivablesReportPage() {
                         <Badge
                             variant="outline"
                             className={
-                                order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                                order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' :
-                                'text-blue-600 border-blue-600'
+                                order.status === 'Delivered' ? 'text-green-600 border-green-600' : 'text-blue-600 border-blue-600'
                             }
                         >
                             {order.status}
