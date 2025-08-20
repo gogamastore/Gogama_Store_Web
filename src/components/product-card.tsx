@@ -1,73 +1,91 @@
 "use client";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LogOut, Settings, User } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import { useRouter } from "next/navigation"
+import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ShoppingCart } from "lucide-react";
+import { useCart } from "@/hooks/use-cart";
+import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
+import { ProductDetailDialog } from "@/app/reseller/components/product-detail-dialog";
 
-export function UserNav() {
-  const { user, signOut } = useAuth();
-  const router = useRouter();
+interface Product {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  'data-ai-hint'?: string;
+  stock: number;
+  description?: string;
+  isPromo?: boolean;
+  discountPrice?: string;
+}
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
-  }
+const formatCurrency = (value: string | number): string => {
+    const num = typeof value === 'string' ? Number(value.replace(/[^0-9]/g, '')) : value;
+    return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+    }).format(num);
+}
 
-  if (!user) {
-    return null;
-  }
+export default function ProductCard({ product, showStockProgress = false }: { product: Product, showStockProgress?: boolean }) {
+  const { addToCart } = useCart();
+  const { toast } = useToast();
+  
+  const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      await addToCart(product, 1);
+    } catch (error) {
+       toast({
+          variant: "destructive",
+          title: "Gagal menambahkan ke keranjang",
+          description: "Terjadi kesalahan, silakan coba lagi.",
+        });
+    }
+  };
+
+  const finalPrice = product.isPromo && product.discountPrice ? product.discountPrice : product.price;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
-            <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.displayName || 'Admin'}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
+    <Card className="overflow-hidden group w-full h-full flex flex-col">
+       <Link href={`/reseller/products/${product.id}`} className="block">
+        <div className="relative aspect-square w-full">
+            <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+            />
+            {product.isPromo && (
+                <Badge variant="destructive" className="absolute top-2 left-2">PROMO</Badge>
+            )}
+             {product.stock === 0 && (
+                <Badge variant="secondary" className="absolute top-2 right-2">Stok Habis</Badge>
+            )}
+        </div>
+      </Link>
+      <CardContent className="p-3 flex-1 flex flex-col justify-between">
+        <div>
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2">{product.name}</h3>
+          <div className="mt-2">
+            {product.isPromo && (
+                 <p className="text-xs text-muted-foreground line-through">{formatCurrency(product.price)}</p>
+            )}
+            <p className="text-base font-bold text-primary">{formatCurrency(finalPrice)}</p>
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+        </div>
+         <ProductDetailDialog product={product}>
+            <Button variant="outline" size="sm" className="w-full mt-3">
+              Lihat Detail
+            </Button>
+         </ProductDetailDialog>
+      </CardContent>
+    </Card>
+  );
 }
