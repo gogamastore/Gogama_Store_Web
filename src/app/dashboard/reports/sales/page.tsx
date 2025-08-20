@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -866,8 +865,8 @@ export default function SalesReportPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {filteredOrders.length > 0 ? (
-                    filteredOrders.map((order) => (
+                {filteredOrders.filter(o => o.status !== 'Cancelled').length > 0 ? (
+                    filteredOrders.filter(o => o.status !== 'Cancelled').map((order) => (
                     <TableRow key={order.id}>
                         <TableCell>
                            <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
