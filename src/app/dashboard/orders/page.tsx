@@ -519,6 +519,20 @@ export default function OrdersPage() {
         ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
         : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
     
+    // Fetch product details for SKUs if needed
+    const productDetailsMap = new Map<string, { sku: string }>();
+    if (type === 'packingSlip') {
+        const productIds = order.products.map(p => p.productId);
+        if (productIds.length > 0) {
+            const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
+            productDocs.forEach(pDoc => {
+                if (pDoc.exists()) {
+                    productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
+                }
+            });
+        }
+    }
+
     const tableRows = type === 'invoice'
         ? order.products.map(p => [
             p.name,
@@ -528,7 +542,7 @@ export default function OrdersPage() {
         ])
         : order.products.map((p, index) => [
             index + 1,
-            p.sku || 'N/A',
+            p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
             p.name,
             p.quantity
         ]);
@@ -580,7 +594,7 @@ export default function OrdersPage() {
           // Header
           pdf.setFontSize(16);
           pdf.setFont('helvetica', 'bold');
-          pdf.text(type === 'invoice' ? `Faktur: ${order.id}` : `Packing Slip: ${order.id}`, 14, 20);
+          pdf.text(type === 'invoice' ? `Faktur: #${order.id.substring(0,7)}` : `Packing Slip: #${order.id.substring(0,7)}`, 14, 20);
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
           
@@ -595,6 +609,20 @@ export default function OrdersPage() {
 
           const tableY = currentY + 10;
           
+          // Fetch product details for SKUs if needed for packing slip
+            const productDetailsMap = new Map<string, { sku: string }>();
+            if (type === 'packingSlip') {
+                const productIds = order.products.map(p => p.productId);
+                if (productIds.length > 0) {
+                    const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
+                    productDocs.forEach(pDoc => {
+                        if (pDoc.exists()) {
+                            productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
+                        }
+                    });
+                }
+            }
+            
           const tableColumn = type === 'invoice' 
               ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
               : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
@@ -608,7 +636,7 @@ export default function OrdersPage() {
               ])
               : order.products.map((p, index) => [
                   index + 1,
-                  p.sku || 'N/A',
+                  p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
                   p.name,
                   p.quantity
               ]);
@@ -1065,14 +1093,10 @@ export default function OrdersPage() {
                  {renderOrderList(filteredOrders.delivered, 'delivered')}
             </TabsContent>
             <TabsContent value="cancelled" className="mt-4">
-                 {renderOrderList(filteredOrders.cancelled, 'cancelled')}
+                {renderOrderList(filteredOrders.cancelled, 'cancelled')}
             </TabsContent>
           </Tabs>
       </CardContent>
     </Card>
   )
 }
-
-    
-
-    
