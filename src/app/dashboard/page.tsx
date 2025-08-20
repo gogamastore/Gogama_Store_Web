@@ -21,7 +21,7 @@ import { DollarSign, Package, ShoppingCart, Users, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns"
+import { format, subMonths } from "date-fns"
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"

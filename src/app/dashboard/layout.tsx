@@ -12,7 +12,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { PurchaseCartProvider } from "@/components/providers/purchase-cart-provider";
 
-// Moved Logo component outside of DashboardLayout
 function Logo() {
   return (
     <Link href="/dashboard" className="flex items-center gap-2 font-semibold font-headline text-lg">
