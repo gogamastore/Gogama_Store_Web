@@ -9,7 +9,6 @@ import { ShoppingCart } from "lucide-react";
 import { useCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { ProductDetailDialog } from "@/app/reseller/components/product-detail-dialog";
 
 interface Product {
   id: string;
@@ -54,30 +53,28 @@ export default function ProductCard({ product, showStockProgress = false }: { pr
 
   return (
     <Card className="overflow-hidden group w-full h-full flex flex-col">
-       <ProductDetailDialog product={product}>
-        <div className="block cursor-pointer">
-            <div className="relative aspect-square w-full">
-                <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                />
-                {product.isPromo && (
-                    <Badge variant="destructive" className="absolute top-2 left-2">PROMO</Badge>
-                )}
-                 {product.stock === 0 && (
-                    <Badge variant="secondary" className="absolute top-2 right-2">Stok Habis</Badge>
-                )}
-            </div>
+      <Link href={`/reseller/products/${product.id}`} className="block cursor-pointer">
+        <div className="relative aspect-square w-full">
+            <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+            />
+            {product.isPromo && (
+                <Badge variant="destructive" className="absolute top-2 left-2">PROMO</Badge>
+            )}
+             {product.stock === 0 && (
+                <Badge variant="secondary" className="absolute top-2 right-2">Stok Habis</Badge>
+            )}
         </div>
-      </ProductDetailDialog>
+      </Link>
       <CardContent className="p-3 flex-1 flex flex-col justify-between">
         <div>
-           <ProductDetailDialog product={product}>
+           <Link href={`/reseller/products/${product.id}`}>
               <h3 className="font-semibold text-sm leading-tight line-clamp-2 cursor-pointer hover:text-primary">{product.name}</h3>
-          </ProductDetailDialog>
+          </Link>
           <div className="mt-2">
             {product.isPromo && (
                  <p className="text-xs text-muted-foreground line-through">{formatCurrency(product.price)}</p>
