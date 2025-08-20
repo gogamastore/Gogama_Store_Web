@@ -16,6 +16,7 @@ interface Product {
   isPromo?: boolean;
   discountPrice?: string;
   stock: number;
+  sku: string;
 }
 
 interface CartItem extends Product {
@@ -190,3 +191,5 @@ export const useCart = (): CartContextType => {
   }
   return context;
 };
+
+    

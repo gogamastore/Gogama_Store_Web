@@ -71,6 +71,7 @@ interface OrderProduct {
   quantity: number;
   price: number;
   image?: string;
+  sku?: string;
 }
 interface CustomerDetails {
     name: string;
@@ -233,7 +234,8 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             name: product.name,
             quantity: quantity,
             price: parseFloat(product.price.replace(/[^0-9]/g, '')),
-            image: product.image
+            image: product.image,
+            sku: product.sku
         };
         setEditableProducts(prev => [...prev, newProduct]);
     };
@@ -526,7 +528,7 @@ export default function OrdersPage() {
         ])
         : order.products.map((p, index) => [
             index + 1,
-            (p as any).sku || 'N/A', // Assuming SKU exists, add fallback
+            p.sku || 'N/A',
             p.name,
             p.quantity
         ]);
@@ -606,7 +608,7 @@ export default function OrdersPage() {
               ])
               : order.products.map((p, index) => [
                   index + 1,
-                  (p as any).sku || 'N/A', // Assuming SKU exists
+                  p.sku || 'N/A',
                   p.name,
                   p.quantity
               ]);
@@ -1070,5 +1072,7 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     

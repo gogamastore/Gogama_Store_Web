@@ -227,6 +227,7 @@ export default function CheckoutPage() {
                 price: item.finalPrice,
                 quantity: item.quantity,
                 image: item.image,
+                sku: item.sku,
             })),
             productIds: productIds, // Add the productIds array
             total: formatCurrency(grandTotal),
@@ -505,3 +506,5 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
+    
