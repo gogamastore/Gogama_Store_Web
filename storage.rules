@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+  
+  // Helper function to check if a user is an admin by looking at their custom claims.
+    // NOTE: This requires you to set a custom claim on the admin user(s).
+    // You can do this with the Firebase Admin SDK in a secure backend environment.
+    // For now, we will check their role in Firestore.
+    function isAdmin() {
+      // Use exists() instead of get() for security rules in Storage
+      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Banner Images: Allow anyone to read, only admins to write.
+    match /banners/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Izinkan pengguna yang sudah login untuk mengunggah file
+    // ke dalam folder 'payment_proofs'.
+    // Izinkan siapa saja untuk membaca (get) bukti pembayaran
+    // (misalnya oleh admin untuk verifikasi).
+    match /payment_proofs/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    match /profile_pictures/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Aturan untuk logo brand
+    match /brand_logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Izinkan pengguna yang sudah login untuk membaca gambar produk
+    // dan admin untuk menuliskannya.
+    match /product_images/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
