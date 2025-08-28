@@ -93,22 +93,27 @@ function DashboardPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
 
+    // Fungsi ini bertanggung jawab untuk mengambil semua data yang diperlukan untuk dasbor dari Firestore.
     async function fetchDashboardData() {
         try {
-            // --- Fetch orders for revenue and sales count ---
+            // LANGKAH 1: Mengambil data pesanan yang sudah selesai (Delivered).
+            // Data ini digunakan untuk menghitung Total Pendapatan dan Jumlah Penjualan.
             const ordersQuery = query(collection(db, "orders"), where("status", "==", "Delivered"));
             const ordersSnapshot = await getDocs(ordersQuery);
             let totalRevenue = 0;
             ordersSnapshot.forEach(doc => {
+                // Membersihkan format mata uang dari string total dan menjadikannya angka.
                 const totalString = doc.data().total?.toString().replace(/[^0-9]/g, '') || '0';
                 totalRevenue += parseFloat(totalString);
             });
 
-            // --- Fetch users for new customers count ---
+            // LANGKAH 2: Mengambil data pengguna dengan peran 'reseller'.
+            // Ini digunakan untuk menghitung jumlah pelanggan baru di kartu statistik.
             const usersQuery = query(collection(db, "user"), where("role", "==", "reseller"));
             const usersSnapshot = await getDocs(usersQuery);
 
-            // --- Fetch products for stock counts ---
+            // LANGKAH 3: Mengambil semua data produk.
+            // Digunakan untuk menghitung total produk yang ada dan jumlah produk yang stoknya menipis (<= 5).
             const productsSnapshot = await getDocs(collection(db, "products"));
             let lowStockCount = 0;
             productsSnapshot.forEach(doc => {
@@ -117,6 +122,7 @@ function DashboardPageContent() {
                 }
             });
             
+            // Menyimpan semua hasil perhitungan ke dalam state untuk ditampilkan di kartu statistik.
             setStats({
                 totalRevenue: totalRevenue,
                 salesCount: ordersSnapshot.size,
@@ -125,18 +131,13 @@ function DashboardPageContent() {
                 lowStockCount: lowStockCount
             });
 
-            // --- Fetch last 6 months sales data ---
+            // LANGKAH 4: Memproses data penjualan untuk grafik 6 bulan terakhir.
+            // Menggunakan data pesanan yang sudah selesai dari LANGKAH 1.
             const monthlySales: { [key: string]: number } = {};
-            const monthLabels: string[] = [];
-            const now = new Date();
-
-            for (let i = 5; i >= 0; i--) {
-                const targetMonth = subMonths(now, i);
+            for (let i = 5; i >= 0; i--) { // Loop untuk 6 bulan (termasuk bulan ini)
+                const targetMonth = subMonths(new Date(), i);
                 const monthKey = format(targetMonth, "yyyy-MM");
-                const monthName = format(targetMonth, "MMM", { locale: dateFnsLocaleId });
-                
-                monthLabels.push(monthName);
-                monthlySales[monthKey] = 0;
+                monthlySales[monthKey] = 0; // Inisialisasi penjualan bulan tersebut ke 0.
             }
 
             ordersSnapshot.docs.forEach(doc => {
@@ -144,13 +145,14 @@ function DashboardPageContent() {
                 if(orderData.date && orderData.date.toDate) {
                     const orderDate = orderData.date.toDate();
                     const monthKey = format(orderDate, "yyyy-MM");
-                    if(monthlySales.hasOwnProperty(monthKey)) {
+                    if(monthlySales.hasOwnProperty(monthKey)) { // Cek apakah pesanan masuk dalam 6 bulan terakhir.
                          const totalString = orderData.total?.toString().replace(/[^0-9]/g, '') || '0';
                          monthlySales[monthKey] += parseFloat(totalString);
                     }
                 }
             });
 
+            // Mengubah data penjualan bulanan menjadi format yang dibutuhkan oleh komponen grafik.
             const chartData = Object.keys(monthlySales).map(key => ({
                 name: format(new Date(key), "MMM", { locale: dateFnsLocaleId }),
                 sales: monthlySales[key]
@@ -158,7 +160,8 @@ function DashboardPageContent() {
             setSalesData(chartData);
 
 
-            // --- Fetch recent orders ---
+            // LANGKAH 5: Mengambil 5 pesanan terbaru (tanpa filter status).
+            // Diurutkan berdasarkan tanggal terbaru dan dibatasi hanya 5 dokumen.
             const recentOrdersQuery = query(collection(db, "orders"), orderBy("date", "desc"), limit(5));
             const recentOrdersSnapshot = await getDocs(recentOrdersQuery);
             const recentOrdersData = recentOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
