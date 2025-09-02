@@ -43,7 +43,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, PlusCircle, Search, Trash2, Loader2, Package } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 
 interface Brand {
@@ -181,15 +181,17 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
     );
 }
 
-export default function ManageBrandProductsPage({ params }: { params: { brandId: string } }) {
+export default function ManageBrandProductsPage() {
   const router = useRouter();
+  const params = useParams();
   const { toast } = useToast();
   const [brand, setBrand] = useState<Brand | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const brandId = params.brandId;
+  const brandId = params.brandId as string;
 
   const fetchBrandAndProducts = useCallback(async () => {
+    if (!brandId) return;
     setLoading(true);
     try {
         const brandDocRef = doc(db, 'brands', brandId);
