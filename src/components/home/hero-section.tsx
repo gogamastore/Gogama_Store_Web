@@ -91,9 +91,8 @@ export default function HeroSection() {
                         <Image
                             src={banner.imageUrl}
                             alt={banner.title}
-                            layout="fill"
-                            objectFit="cover"
-                            className="brightness-75"
+                            fill
+                            className="object-cover brightness-75"
                             priority={index === 0}
                         />
                         <div className="absolute inset-0 flex flex-col items-start justify-center p-6 md:p-16 text-white space-y-2 md:space-y-4">
