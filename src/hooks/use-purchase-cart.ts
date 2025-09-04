@@ -79,7 +79,7 @@ export const usePurchaseCartState = () => {
     setCart(prevCart =>
       prevCart.map(item =>
         item.id === productId ? { ...item, ...updates } : item
-      ).filter(item => item.quantity > 0) // Remove item if quantity is 0 or less
+      ).filter(item => (item.quantity ?? 0) > 0) // Remove item if quantity is 0 or less
     );
   };
 

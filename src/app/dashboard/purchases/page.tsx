@@ -35,7 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Search, ShoppingCart, Trash2, XCircle, ChevronLeft, ChevronRight, ArrowRight, ArrowUp, ArrowDown, Minus, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePurchaseCart } from "@/hooks/use-purchase-cart";
+import { usePurchaseCart, type CartItem } from "@/hooks/use-purchase-cart";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -119,6 +119,73 @@ function AddToCartDialog({ product, onAddToCart }: { product: Product, onAddToCa
   );
 }
 
+
+function EditCartItemDialog({ item, onUpdate, children }: { item: CartItem, onUpdate: (updates: { quantity?: number, purchasePrice?: number }) => void, children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [quantity, setQuantity] = useState(item.quantity);
+  const [purchasePrice, setPurchasePrice] = useState(item.purchasePrice);
+
+  const handleSave = () => {
+    onUpdate({ quantity, purchasePrice });
+    setIsOpen(false);
+  };
+
+  // Reset state when dialog opens with a new item's data
+  useEffect(() => {
+    if (isOpen) {
+        setQuantity(item.quantity);
+        setPurchasePrice(item.purchasePrice);
+    }
+  }, [isOpen, item]);
+
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Item: {item.name}</DialogTitle>
+          <DialogDescription>
+            Ubah jumlah dan harga beli untuk produk ini.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="quantity-edit" className="text-right">
+              Jumlah
+            </Label>
+            <Input
+              id="quantity-edit"
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className="col-span-3"
+              min="1"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="purchase-price-edit" className="text-right">
+              Harga Beli (satuan)
+            </Label>
+            <Input
+              id="purchase-price-edit"
+              type="number"
+              value={purchasePrice}
+              onChange={(e) => setPurchasePrice(Number(e.target.value))}
+              className="col-span-3"
+              min="0"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" onClick={handleSave}>Simpan Perubahan</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function PurchaseTransactionPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -367,47 +434,30 @@ export default function PurchaseTransactionPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Produk</TableHead>
-                                <TableHead className="w-[120px]">Jml</TableHead>
-                                <TableHead className="w-[150px]">Harga Beli</TableHead>
                                 <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {cart.map(item => (
-                                <TableRow key={item.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{item.name}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                           Subtotal: {formatCurrency(item.quantity * item.purchasePrice)}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1">
-                                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.id, { quantity: item.quantity - 1 })}><Minus className="h-3 w-3" /></Button>
-                                            <Input
-                                                type="number"
-                                                value={item.quantity}
-                                                onChange={(e) => updateCartItem(item.id, { quantity: parseInt(e.target.value, 10) || 1 })}
-                                                className="w-12 h-7 text-center"
-                                            />
-                                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.id, { quantity: item.quantity + 1 })}><Plus className="h-3 w-3" /></Button>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Input
-                                            type="number"
-                                            value={item.purchasePrice}
-                                            onChange={(e) => updateCartItem(item.id, { purchasePrice: Number(e.target.value) })}
-                                            className="w-full h-8"
-                                            placeholder="Harga Beli"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
+                                <EditCartItemDialog 
+                                    key={item.id} 
+                                    item={item} 
+                                    onUpdate={(updates) => updateCartItem(item.id, updates)}
+                                >
+                                    <TableRow className="cursor-pointer">
+                                        <TableCell>
+                                            <div className="font-medium">{item.name}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {item.quantity} x {formatCurrency(item.purchasePrice)} = <strong>{formatCurrency(item.quantity * item.purchasePrice)}</strong>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); removeFromCart(item.id); }}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                </EditCartItemDialog>
                             ))}
                         </TableBody>
                     </Table>
