@@ -434,6 +434,7 @@ export default function PurchaseTransactionPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Produk</TableHead>
+                                <TableHead className="text-right">Subtotal</TableHead>
                                 <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -448,8 +449,11 @@ export default function PurchaseTransactionPage() {
                                         <TableCell>
                                             <div className="font-medium">{item.name}</div>
                                             <div className="text-xs text-muted-foreground">
-                                                {item.quantity} x {formatCurrency(item.purchasePrice)} = <strong>{formatCurrency(item.quantity * item.purchasePrice)}</strong>
+                                                {item.quantity} x {formatCurrency(item.purchasePrice)}
                                             </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                            {formatCurrency(item.quantity * item.purchasePrice)}
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); removeFromCart(item.id); }}>
