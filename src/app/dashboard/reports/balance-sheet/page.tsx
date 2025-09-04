@@ -192,7 +192,46 @@ export default function BalanceSheetPage() {
   }, [selectedMonth, generateReport]);
 
   const handleDownloadExcel = () => {
-    // This function can be expanded to create a more detailed Excel report
+    const period = monthOptions.find(opt => opt.value === selectedMonth)?.label || selectedMonth;
+
+    const data = [
+        ["Laporan Neraca"],
+        ["Periode", period],
+        [],
+        ["AKTIVA", "Jumlah", "", "PASIVA", "Jumlah"],
+        ["Aset Lancar", "", "", "Kewajiban (Liabilitas)", ""],
+        ["  Kas", reportData.assets.currentAssets.cash, "", "  Utang Dagang", reportData.liabilitiesAndEquity.liabilities.tradePayables],
+        ["  Bank", reportData.assets.currentAssets.bank, "", "Total Kewajiban", reportData.liabilitiesAndEquity.liabilities.total],
+        ["  Piutang Usaha", reportData.assets.currentAssets.receivables, "", "", ""],
+        ["  Persediaan", reportData.assets.currentAssets.inventory, "", "Ekuitas (Modal)", ""],
+        ["Total Aset Lancar", reportData.assets.currentAssets.total, "", "  Modal Awal", reportData.liabilitiesAndEquity.equity.initialCapital],
+        ["", "", "", "  Laba Ditahan", reportData.liabilitiesAndEquity.equity.retainedEarnings],
+        ["Aset Tetap", "", "", "Total Ekuitas", reportData.liabilitiesAndEquity.equity.total],
+        ["Total Aset Tetap", reportData.assets.fixedAssets.total, "", "", ""],
+        [],
+        ["TOTAL AKTIVA", reportData.assets.total, "", "TOTAL PASIVA", reportData.liabilitiesAndEquity.total]
+    ];
+    
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    // Apply currency format to number columns
+    worksheet["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 5 }, { wch: 25 }, { wch: 15 }];
+    const currencyFormat = '"Rp"#,##0;\\-"Rp"#,##0';
+    const numberCells = ["B6", "B7", "B8", "B9", "B10", "B13", "B15", "E6", "E7", "E10", "E11", "E12", "E15"];
+    numberCells.forEach(cell => {
+        if(worksheet[cell]) worksheet[cell].z = currencyFormat;
+    });
+
+    // Styling headers
+    ["A1", "A4", "D4", "B10", "B13", "B15", "E7", "E12", "E15"].forEach(cell => {
+        if(worksheet[cell]) worksheet[cell].s = { font: { bold: true } };
+    });
+    
+    worksheet["A1"].s.font.sz = 16;
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Neraca");
+    XLSX.writeFile(workbook, `Laporan_Neraca_${period.replace(" ", "_")}.xlsx`);
   };
 
   return (
@@ -310,3 +349,5 @@ export default function BalanceSheetPage() {
     </div>
   )
 }
+
+    
