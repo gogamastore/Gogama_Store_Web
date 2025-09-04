@@ -17,6 +17,7 @@ interface PurchaseCartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
   removeFromCart: (productId: string) => void;
+  updateCartItem: (productId: string, updates: { quantity?: number; purchasePrice?: number }) => void;
   clearCart: () => void;
   totalItems: number;
   totalPurchase: number;
@@ -73,6 +74,14 @@ export const usePurchaseCartState = () => {
   const removeFromCart = (productId: string) => {
     setCart(prevCart => prevCart.filter(item => item.id !== productId));
   };
+  
+  const updateCartItem = (productId: string, updates: { quantity?: number; purchasePrice?: number }) => {
+    setCart(prevCart =>
+      prevCart.map(item =>
+        item.id === productId ? { ...item, ...updates } : item
+      ).filter(item => item.quantity > 0) // Remove item if quantity is 0 or less
+    );
+  };
 
   const clearCart = useCallback(() => {
     setCart([]);
@@ -88,6 +97,7 @@ export const usePurchaseCartState = () => {
     cart,
     addToCart,
     removeFromCart,
+    updateCartItem,
     clearCart,
     totalItems,
     totalPurchase

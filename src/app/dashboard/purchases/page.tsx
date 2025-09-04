@@ -33,7 +33,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Search, ShoppingCart, Trash2, XCircle, ChevronLeft, ChevronRight, ArrowRight, ArrowUp, ArrowDown } from "lucide-react";
+import { PlusCircle, Search, ShoppingCart, Trash2, XCircle, ChevronLeft, ChevronRight, ArrowRight, ArrowUp, ArrowDown, Minus, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePurchaseCart } from "@/hooks/use-purchase-cart";
 import { useRouter } from "next/navigation";
@@ -124,7 +124,7 @@ export default function PurchaseTransactionPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const { cart, addToCart, removeFromCart, clearCart, totalPurchase } = usePurchaseCart();
+  const { cart, addToCart, removeFromCart, clearCart, updateCartItem, totalPurchase } = usePurchaseCart();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -367,7 +367,8 @@ export default function PurchaseTransactionPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Produk</TableHead>
-                                <TableHead className="text-right">Subtotal</TableHead>
+                                <TableHead className="w-[120px]">Jml</TableHead>
+                                <TableHead className="w-[150px]">Harga Beli</TableHead>
                                 <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -377,11 +378,29 @@ export default function PurchaseTransactionPage() {
                                     <TableCell>
                                         <div className="font-medium">{item.name}</div>
                                         <div className="text-xs text-muted-foreground">
-                                            {item.quantity} x {formatCurrency(item.purchasePrice)}
+                                           Subtotal: {formatCurrency(item.quantity * item.purchasePrice)}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right font-medium">
-                                        {formatCurrency(item.quantity * item.purchasePrice)}
+                                    <TableCell>
+                                        <div className="flex items-center gap-1">
+                                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.id, { quantity: item.quantity - 1 })}><Minus className="h-3 w-3" /></Button>
+                                            <Input
+                                                type="number"
+                                                value={item.quantity}
+                                                onChange={(e) => updateCartItem(item.id, { quantity: parseInt(e.target.value, 10) || 1 })}
+                                                className="w-12 h-7 text-center"
+                                            />
+                                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => updateCartItem(item.id, { quantity: item.quantity + 1 })}><Plus className="h-3 w-3" /></Button>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input
+                                            type="number"
+                                            value={item.purchasePrice}
+                                            onChange={(e) => updateCartItem(item.id, { purchasePrice: Number(e.target.value) })}
+                                            className="w-full h-8"
+                                            placeholder="Harga Beli"
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
