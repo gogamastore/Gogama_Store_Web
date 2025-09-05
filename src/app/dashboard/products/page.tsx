@@ -912,6 +912,10 @@ export default function ProductsPage() {
                                                         <span className="font-medium">{product.category}</span>
                                                     </div>
                                                     <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Stok Saat Ini</span>
+                                                        <span className="font-medium">{product.stock}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
                                                         <span className="text-muted-foreground">Harga Beli</span>
                                                         <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
                                                     </div>
