@@ -315,7 +315,7 @@ export default function ProductSalesReportPage() {
     const lowercasedFilter = searchTerm.toLowerCase();
     return allReportData.filter(product => 
         product.name.toLowerCase().includes(lowercasedFilter) ||
-        product.sku.toLowerCase().includes(lowercasedFilter)
+        (product.sku && String(product.sku).toLowerCase().includes(lowercasedFilter))
     );
   }, [allReportData, searchTerm]);
 
