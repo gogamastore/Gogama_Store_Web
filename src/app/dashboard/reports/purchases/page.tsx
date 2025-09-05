@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, doc, getDoc, writeBatch, query as firestoreQuery, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, writeBatch, query as firestoreQuery, where, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -45,7 +45,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft, Printer } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft, Printer, Banknote, CreditCard } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +57,9 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -209,6 +212,79 @@ function AddProductToPurchaseDialog({ currentItems, onAddProduct }: { currentIte
     );
 }
 
+function PaymentDialog({ transaction, onPaymentSuccess }: { transaction: PurchaseTransaction, onPaymentSuccess: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer'>('cash');
+    const [description, setDescription] = useState('');
+    const { toast } = useToast();
+
+    const handleProcessPayment = async () => {
+        setIsSubmitting(true);
+        try {
+            const purchaseRef = doc(db, "purchase_transactions", transaction.id);
+            await updateDoc(purchaseRef, {
+                paymentMethod: paymentMethod,
+                paymentStatus: 'paid', // Assuming full payment, you can adjust logic for partial payments
+                paymentNotes: description,
+                paidAt: new Date()
+            });
+
+            toast({ title: "Pembayaran Berhasil", description: "Status transaksi telah diperbarui menjadi lunas." });
+            onPaymentSuccess();
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Error processing payment:", error);
+            toast({ variant: 'destructive', title: "Gagal memproses pembayaran." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="default"><CreditCard className="mr-2 h-4 w-4"/>Pembayaran</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Pembayaran Utang Pembelian</DialogTitle>
+                    <DialogDescription>ID Transaksi: {transaction.id}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div className="text-center border p-4 rounded-md">
+                        <p className="text-sm text-muted-foreground">Total Tagihan</p>
+                        <p className="text-3xl font-bold">{formatCurrency(transaction.totalAmount)}</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Metode Pembayaran</Label>
+                        <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cash' | 'bank_transfer')}>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="cash" id="cash"/>
+                                <Label htmlFor="cash">Cash</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="bank_transfer" id="bank_transfer"/>
+                                <Label htmlFor="bank_transfer">Transfer Bank</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="description">Keterangan (Opsional)</Label>
+                        <Textarea id="description" placeholder="Catatan untuk pembayaran ini..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleProcessPayment} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Proses Pembayaran
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: PurchaseTransaction, onPurchaseUpdated: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -522,9 +598,14 @@ function PurchaseDetailDialog({ transaction, onPurchaseUpdated }: { transaction:
                     </div>
                 </div>
                 <DialogFooter className="justify-between">
-                    <Button onClick={generatePdf} variant="outline">
-                        <Printer className="mr-2 h-4 w-4"/> Download Faktur
-                    </Button>
+                    <div className="flex gap-2">
+                         <Button onClick={generatePdf} variant="outline">
+                            <Printer className="mr-2 h-4 w-4"/> Download Faktur
+                        </Button>
+                        {transaction.paymentMethod === 'credit' && (
+                            <PaymentDialog transaction={transaction} onPaymentSuccess={onPurchaseUpdated}/>
+                        )}
+                    </div>
                     <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={onPurchaseUpdated} />
                 </DialogFooter>
             </DialogContent>
