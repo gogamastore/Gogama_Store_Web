@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +28,27 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const { toast } = useToast();
 
-  const startScanner = async () => {
+  const stopScanner = useCallback(async () => {
+    if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
+        await scannerRef.current.stop();
+      } catch (err) {
+        // Ignore errors when stopping, as the scanner might already be stopped.
+      }
+    }
+  }, []);
+
+  const startScanner = useCallback(async () => {
+    // Ensure scanner is stopped before starting a new session
+    await stopScanner();
+
+    // Check if the DOM element is ready
+    const scannerElement = document.getElementById(SCANNER_ID);
+    if (!scannerElement) {
+        console.error("Scanner element not found in DOM");
+        return;
+    }
+    
     if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(SCANNER_ID);
     }
@@ -40,17 +60,18 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
             setHasPermission(true);
             const qrCodeSuccessCallback: QrcodeSuccessCallback = (decodedText, decodedResult) => {
                 onScanSuccess(decodedText);
+                toast({ title: "Barcode Terdeteksi!", description: `Kode: ${decodedText}` });
                 setIsOpen(false); // Close dialog on successful scan
             };
             const qrCodeErrorCallback: QrcodeErrorCallback = (errorMessage, error) => {
-                // Ignore 'QR code parse error' which happens on every frame without a QR code.
+                // Ignore common "QR code parse error"
                  if (!errorMessage.includes('QR code parse error')) {
-                    console.warn(`QR Code no longer in front of camera. Error: ${errorMessage}`);
+                    console.warn(`QR Code error: ${errorMessage}`);
                 }
             };
             await html5Qrcode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
+                { fps: 10, qrbox: { width: 250, height: 250 }, useBarCodeDetectorIfSupported: true },
                 qrCodeSuccessCallback,
                 qrCodeErrorCallback
             );
@@ -61,30 +82,20 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
         console.error("Error starting scanner:", err);
         setHasPermission(false);
     }
-  };
-
-  const stopScanner = async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      try {
-        await scannerRef.current.stop();
-      } catch (err) {
-        console.error("Failed to stop scanner gracefully", err);
-      }
-    }
-  };
+  }, [onScanSuccess, stopScanner, toast]);
   
   useEffect(() => {
     if (isOpen) {
-        startScanner();
+        // Delay starting the scanner slightly to ensure the dialog and DOM are ready
+        const timer = setTimeout(() => {
+            startScanner();
+        }, 100); 
+        return () => clearTimeout(timer);
     } else {
         stopScanner();
     }
     
-    return () => {
-        stopScanner();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, startScanner, stopScanner]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -101,8 +112,8 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
             Posisikan barcode di dalam kotak untuk memindai SKU produk secara otomatis.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-center items-center rounded-lg overflow-hidden border">
-           <div id={SCANNER_ID} className="w-full aspect-square"></div>
+        <div className="flex justify-center items-center rounded-lg overflow-hidden border bg-black">
+           <div id={SCANNER_ID} className="w-full aspect-video"></div>
         </div>
         {!hasPermission && (
             <div className="text-destructive text-sm flex items-center gap-2 p-2 rounded-md bg-destructive/10">
