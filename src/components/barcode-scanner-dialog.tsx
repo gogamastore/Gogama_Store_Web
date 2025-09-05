@@ -14,13 +14,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, AlertTriangle, X } from "lucide-react";
-import { Html5Qrcode, Html5QrcodeError, Html5QrcodeResult, QrcodeErrorCallback, QrcodeSuccessCallback } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats, QrcodeSuccessCallback, QrcodeErrorCallback } from "html5-qrcode";
 
 const SCANNER_ID = "barcode-scanner-dialog";
 
 interface BarcodeScannerDialogProps {
   onScanSuccess: (decodedText: string) => void;
 }
+
+// Define the formats we want to support, including EAN-13 for retail products.
+const supportedFormats = [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.QR_CODE,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+];
+
 
 export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -49,8 +59,12 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
         return;
     }
     
+    // Initialize the scanner if it hasn't been already
     if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(SCANNER_ID);
+        scannerRef.current = new Html5Qrcode(SCANNER_ID, { 
+            formatsToSupport: supportedFormats,
+            verbose: false 
+        });
     }
     const html5Qrcode = scannerRef.current;
     
@@ -63,15 +77,13 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
                 toast({ title: "Barcode Terdeteksi!", description: `Kode: ${decodedText}` });
                 setIsOpen(false); // Close dialog on successful scan
             };
-            const qrCodeErrorCallback: QrcodeErrorCallback = (errorMessage, error) => {
-                // Ignore common "QR code parse error"
-                 if (!errorMessage.includes('QR code parse error')) {
-                    console.warn(`QR Code error: ${errorMessage}`);
-                }
+            const qrCodeErrorCallback: QrcodeErrorCallback = (errorMessage) => {
+                // This callback is called frequently, so we can choose to ignore errors.
+                // console.warn(`Barcode scan error: ${errorMessage}`);
             };
             await html5Qrcode.start(
                 { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 }, useBarCodeDetectorIfSupported: true },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
                 qrCodeSuccessCallback,
                 qrCodeErrorCallback
             );
@@ -89,7 +101,7 @@ export function BarcodeScannerDialog({ onScanSuccess }: BarcodeScannerDialogProp
         // Delay starting the scanner slightly to ensure the dialog and DOM are ready
         const timer = setTimeout(() => {
             startScanner();
-        }, 100); 
+        }, 150); 
         return () => clearTimeout(timer);
     } else {
         stopScanner();
