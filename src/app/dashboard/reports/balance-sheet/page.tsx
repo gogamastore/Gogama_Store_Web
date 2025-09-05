@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, Timestamp, getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -138,24 +138,50 @@ export default function BalanceSheetPage() {
         const payablesSnapshot = await getDocs(payablesQuery);
         const totalPayables = payablesSnapshot.docs.reduce((sum, doc) => sum + (doc.data().totalAmount || 0), 0);
         
-        // 4. Retained Earnings (Laba Ditahan)
-        const revenueQuery = query(collection(db, "orders"), where("date", "<=", Timestamp.fromDate(endDate)));
-        const expensesQuery = query(collection(db, "operational_expenses"), where("date", "<=", Timestamp.fromDate(endDate)));
-        const cogsQuery = query(collection(db, "purchase_transactions"), where("date", "<=", Timestamp.fromDate(endDate)));
+        // 4. Retained Earnings (Laba Ditahan) - Kumulatif hingga akhir bulan terpilih
+        const revenueQuery = query(
+            collection(db, "orders"), 
+            where("status", "in", ["Shipped", "Delivered"]),
+            where("date", "<=", Timestamp.fromDate(endDate))
+        );
+        const expensesQuery = query(
+            collection(db, "operational_expenses"), 
+            where("date", "<=", Timestamp.fromDate(endDate))
+        );
         
-        const [revenueSnapshot, expensesSnapshot, cogsSnapshot] = await Promise.all([
+        const [revenueSnapshot, expensesSnapshot] = await Promise.all([
              getDocs(revenueQuery),
-             getDocs(expensesQuery),
-             getDocs(cogsQuery),
+             getDocs(expensesSnapshot),
         ]);
 
         const totalRevenue = revenueSnapshot.docs.reduce((sum, doc) => {
              const totalString = doc.data().total?.toString().replace(/[^0-9]/g, '') || '0';
              return sum + parseFloat(totalString);
         }, 0);
+        
         const totalExpenses = expensesSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-        const totalCogs = cogsSnapshot.docs.reduce((sum, doc) => sum + (doc.data().totalAmount || 0), 0);
-
+        
+        // Calculate COGS based on sold products within the period
+        let totalCogs = 0;
+        const productPurchasePrices = new Map<string, number>();
+        for (const orderDoc of revenueSnapshot.docs) {
+            const orderData = orderDoc.data();
+            for (const item of orderData.products) {
+                let purchasePrice = productPurchasePrices.get(item.productId);
+                if (purchasePrice === undefined) {
+                    const productRef = doc(db, "products", item.productId);
+                    const productSnap = await getDoc(productRef);
+                    if (productSnap.exists()) {
+                        purchasePrice = productSnap.data().purchasePrice || 0;
+                        productPurchasePrices.set(item.productId, purchasePrice);
+                    } else {
+                        purchasePrice = 0; // Product might be deleted
+                    }
+                }
+                totalCogs += purchasePrice * item.quantity;
+            }
+        }
+        
         const retainedEarnings = totalRevenue - totalCogs - totalExpenses;
         
         // --- SUMMARIZE ---
@@ -219,7 +245,10 @@ export default function BalanceSheetPage() {
     const currencyFormat = '"Rp"#,##0;\\-"Rp"#,##0';
     const numberCells = ["B6", "B7", "B8", "B9", "B10", "B13", "B15", "E6", "E7", "E10", "E11", "E12", "E15"];
     numberCells.forEach(cell => {
-        if(worksheet[cell]) worksheet[cell].z = currencyFormat;
+        if(worksheet[cell]) {
+            worksheet[cell].t = 'n'; // Set cell type to number
+            worksheet[cell].z = currencyFormat;
+        }
     });
 
     // Styling headers
@@ -349,5 +378,3 @@ export default function BalanceSheetPage() {
     </div>
   )
 }
-
-    

@@ -1036,7 +1036,7 @@ export default function OrdersPage() {
         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
                  <CardTitle>Pesanan</CardTitle>
-                 <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
+                 <CardDescription>Lihat dan kelola semua pesanan</CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                  <div className="relative flex-1 sm:flex-auto">
