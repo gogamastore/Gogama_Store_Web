@@ -312,13 +312,13 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
     };
 
     return (
-         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-             <DialogTrigger asChild>
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
                 </DropdownMenuItem>
-             </DialogTrigger>
-             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader className="flex-row justify-between items-center">
                     <div>
                         <DialogTitle>Edit Pesanan #{order.id.substring(0, 7)}...</DialogTitle>
@@ -345,7 +345,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                     <TableRow key={p.productId}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>
-                                             <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-1">
                                                 <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, p.quantity - 1)}>
                                                     <Minus className="h-3 w-3" />
                                                 </Button>
@@ -371,7 +371,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                     </TableRow>
                                 ))}
                                 {editableProducts.length === 0 && (
-                                     <TableRow>
+                                    <TableRow>
                                         <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                                             Tidak ada produk dalam pesanan. Tambahkan produk baru untuk melanjutkan.
                                         </TableCell>
@@ -380,11 +380,11 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                             </TableBody>
                         </Table>
                     </div>
-                     <Separator className="my-4"/>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
+                    <Separator className="my-4"/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
                         <div className="space-y-2">
-                             <Label htmlFor="shippingFee">Biaya Pengiriman</Label>
-                             <div className="relative">
+                            <Label htmlFor="shippingFee">Biaya Pengiriman</Label>
+                            <div className="relative">
                                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
                                 <Input 
                                     id="shippingFee" 
@@ -393,15 +393,15 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                     onChange={(e) => setShippingFee(Number(e.target.value))}
                                     className="pl-8"
                                 />
-                             </div>
+                            </div>
                         </div>
                         <div className="space-y-1 text-right md:pt-5">
                             <p className="text-sm text-muted-foreground">Subtotal Produk: {formatCurrency(subtotal)}</p>
                             <p className="text-lg font-bold">Total Baru: {formatCurrency(newTotal)}</p>
                         </div>
-                     </div>
+                    </div>
                 </div>
-                 <DialogFooter className="flex-col sm:flex-row sm:justify-end items-stretch sm:items-center gap-4 pt-4 border-t">
+                <DialogFooter className="flex-col sm:flex-row sm:justify-end items-stretch sm:items-center gap-4 pt-4 border-t">
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleSaveChanges} disabled={isSaving || editableProducts.length === 0}>
@@ -412,7 +412,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    )
+    );
 }
 
 export default function OrdersPage() {
@@ -422,6 +422,7 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [searchTerm, setSearchTerm] = useState("");
 
 
   const fetchOrders = useCallback(async () => {
@@ -793,6 +794,15 @@ export default function OrdersPage() {
         });
     }
 
+    if (searchTerm) {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        filtered = filtered.filter(order => {
+            const customerName = order.customerDetails?.name || order.customer || '';
+            return customerName.toLowerCase().includes(lowercasedFilter) ||
+                   order.id.toLowerCase().includes(lowercasedFilter);
+        });
+    }
+
     const toProcess = filtered.filter(o => o.status === 'Pending');
     const toShip = filtered.filter(o => o.status === 'Processing');
     const shipped = filtered.filter(o => o.status === 'Shipped');
@@ -800,7 +810,7 @@ export default function OrdersPage() {
     const cancelled = filtered.filter(o => o.status === 'Cancelled');
 
     return { toProcess, toShip, shipped, delivered, cancelled };
-  }, [allOrders, dateRange]);
+  }, [allOrders, dateRange, searchTerm]);
   
   const handleSelectOrder = (orderId: string, isSelected: boolean) => {
       setSelectedOrders(prev => isSelected ? [...prev, orderId] : prev.filter(id => id !== orderId));
@@ -1028,7 +1038,16 @@ export default function OrdersPage() {
                  <CardTitle>Pesanan</CardTitle>
                  <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                 <div className="relative flex-1 sm:flex-auto">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari No. Pesanan / Nama..."
+                        className="pl-8 w-full"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button id="date" variant={"outline"} className="w-full sm:w-[280px] justify-start text-left font-normal">
@@ -1042,7 +1061,7 @@ export default function OrdersPage() {
                 </Popover>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button disabled={selectedOrders.length === 0}>
+                        <Button disabled={selectedOrders.length === 0} className="w-full sm:w-auto">
                             <Download className="mr-2 h-4 w-4" />
                             Download ({selectedOrders.length})
                         </Button>
