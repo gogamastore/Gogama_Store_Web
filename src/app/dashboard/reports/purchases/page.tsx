@@ -149,10 +149,12 @@ function AddProductToPurchaseDialog({ currentItems, onAddProduct }: { currentIte
     useEffect(() => {
         const currentProductIds = currentItems.map(p => p.productId);
         const availableProducts = allProducts.filter(p => !currentProductIds.includes(p.id));
-        const results = availableProducts.filter(p => 
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const results = availableProducts.filter(p => {
+            const nameMatch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+            // Safely check SKU
+            const skuMatch = p.sku && typeof p.sku === 'string' ? p.sku.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+            return nameMatch || skuMatch;
+        });
         setFilteredProducts(results);
     }, [searchTerm, allProducts, currentItems]);
 
@@ -879,3 +881,4 @@ export default function PurchasesReportPage() {
     </div>
   );
 }
+
