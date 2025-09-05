@@ -151,7 +151,7 @@ export default function BalanceSheetPage() {
         
         const [revenueSnapshot, expensesSnapshot] = await Promise.all([
              getDocs(revenueQuery),
-             getDocs(expensesSnapshot),
+             getDocs(expensesQuery),
         ]);
 
         const totalRevenue = revenueSnapshot.docs.reduce((sum, doc) => {
