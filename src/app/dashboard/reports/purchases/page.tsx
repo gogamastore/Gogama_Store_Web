@@ -513,14 +513,22 @@ function PurchaseDetailDialog({ transaction, onPurchaseUpdated }: { transaction:
     const generatePdf = () => {
         if (!transaction) return;
         const pdfDoc = new jsPDF();
+        
+        const paymentMethodText = 
+            transaction.paymentMethod === 'bank_transfer' ? 'Bank Transfer' :
+            transaction.paymentMethod === 'credit' ? 'Kredit' :
+            'Cash';
+
         pdfDoc.setFontSize(20);
         pdfDoc.text("Faktur Pembelian", 14, 22);
         pdfDoc.setFontSize(10);
         pdfDoc.text(`ID Transaksi: ${transaction.id}`, 14, 32);
         pdfDoc.text(`Tanggal: ${format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}`, 14, 37);
         pdfDoc.text(`Supplier: ${transaction.supplierName || 'N/A'}`, 14, 42);
+        pdfDoc.text(`Metode Bayar: ${paymentMethodText}`, 14, 47);
 
-        const tableY = 52;
+
+        const tableY = 57;
         const tableColumn = ["Nama Produk", "Jumlah", "Harga Beli", "Subtotal"];
         const tableRows = transaction.items?.map(item => [
             item.productName,
