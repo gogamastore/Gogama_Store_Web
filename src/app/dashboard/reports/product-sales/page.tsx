@@ -37,13 +37,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Package, FileText, Loader2, ArrowLeft, Printer } from "lucide-react";
+import { Calendar as CalendarIcon, Package, FileText, Loader2, ArrowLeft, Printer, Search } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Input } from "@/components/ui/input";
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -240,13 +241,14 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
 }
 
 export default function ProductSalesReportPage() {
-  const [reportData, setReportData] = useState<ProductSalesReport[]>([]);
+  const [allReportData, setAllReportData] = useState<ProductSalesReport[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  const [searchTerm, setSearchTerm] = useState("");
 
   const generateReport = useCallback(async (from: Date, to: Date) => {
     setLoading(true);
@@ -297,7 +299,7 @@ export default function ProductSalesReportPage() {
         });
 
         const sortedReport = Array.from(salesMap.values()).sort((a, b) => b.totalSold - a.totalSold);
-        setReportData(sortedReport);
+        setAllReportData(sortedReport);
 
     } catch (error) {
         console.error("Error generating product sales report:", error);
@@ -305,6 +307,17 @@ export default function ProductSalesReportPage() {
         setLoading(false);
     }
   }, []);
+
+  const filteredReportData = useMemo(() => {
+    if (!searchTerm) {
+        return allReportData;
+    }
+    const lowercasedFilter = searchTerm.toLowerCase();
+    return allReportData.filter(product => 
+        product.name.toLowerCase().includes(lowercasedFilter) ||
+        product.sku.toLowerCase().includes(lowercasedFilter)
+    );
+  }, [allReportData, searchTerm]);
 
   useEffect(() => {
     if (dateRange && dateRange.from && dateRange.to) {
@@ -352,6 +365,15 @@ export default function ProductSalesReportPage() {
                  <CardDescription>
                     Daftar produk terlaris dalam periode yang dipilih.
                  </CardDescription>
+                 <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari produk berdasarkan nama atau SKU..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </CardHeader>
             <CardContent>
                  <div className="overflow-auto">
@@ -370,8 +392,8 @@ export default function ProductSalesReportPage() {
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></TableCell>
                                 </TableRow>
-                            ) : reportData.length > 0 ? (
-                                reportData.map((product, index) => (
+                            ) : filteredReportData.length > 0 ? (
+                                filteredReportData.map((product, index) => (
                                 <TableRow key={product.id}>
                                     <TableCell className="font-bold text-lg text-muted-foreground">#{index + 1}</TableCell>
                                     <TableCell className="font-medium flex items-center gap-3">
