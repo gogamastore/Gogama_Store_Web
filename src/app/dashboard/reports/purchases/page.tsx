@@ -79,6 +79,7 @@ interface PurchaseItem {
   productName: string;
   quantity: number;
   purchasePrice: number;
+  image?: string; // Add image property
 }
 interface PurchaseTransaction {
   id: string;
@@ -244,7 +245,8 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
             productId: product.id,
             productName: product.name,
             quantity: quantity,
-            purchasePrice: purchasePrice
+            purchasePrice: purchasePrice,
+            image: product.image
         };
         setEditableItems(prev => [...prev, newItem]);
     };
@@ -322,7 +324,7 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
             const purchaseRef = doc(db, "purchase_transactions", transaction.id);
             const finalItems = editableItems.filter(i => i.quantity > 0);
             batch.update(purchaseRef, {
-                items: finalItems,
+                items: finalItems.map(({ image, ...rest }) => rest), // Remove image before saving to transaction
                 totalAmount: newTotal,
             });
     
@@ -388,7 +390,10 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
                             <TableBody>
                                 {editableItems.map(item => (
                                      <TableRow key={item.productId}>
-                                        <TableCell className="font-medium">{item.productName}</TableCell>
+                                        <TableCell className="font-medium flex items-center gap-2">
+                                            <Image src={item.image || "https://placehold.co/64x64.png"} alt={item.productName} width={40} height={40} className="rounded-md border"/>
+                                            {item.productName}
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
                                                 <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}><Minus className="h-3 w-3" /></Button>
@@ -493,7 +498,10 @@ function PurchaseDetailDialog({ transaction, onPurchaseUpdated }: { transaction:
                                 <TableBody>
                                     {transaction.items?.map(item => (
                                         <TableRow key={item.productId}>
-                                            <TableCell>{item.productName}</TableCell>
+                                            <TableCell className="font-medium flex items-center gap-2">
+                                                <Image src={item.image || "https://placehold.co/64x64.png"} alt={item.productName} width={40} height={40} className="rounded-md border"/>
+                                                {item.productName}
+                                            </TableCell>
                                             <TableCell>{item.quantity}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
@@ -549,12 +557,24 @@ export default function PurchasesReportPage() {
   const fetchTransactions = useCallback(async () => {
       setLoading(true);
       try {
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const productsMap = new Map<string, { image: string }>();
+        productsSnapshot.forEach(doc => {
+            productsMap.set(doc.id, { image: doc.data().image });
+        });
+
         const querySnapshot = await getDocs(collection(db, "purchase_transactions"));
         const transactionsData = querySnapshot.docs.map(doc => {
             const data = doc.data();
+            const itemsWithImages = data.items?.map((item: PurchaseItem) => ({
+                ...item,
+                image: productsMap.get(item.productId)?.image || "https://placehold.co/64x64.png"
+            })) || [];
+            
             return { 
                 id: doc.id, 
                 ...data,
+                items: itemsWithImages,
                 date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
             } as PurchaseTransaction;
         });

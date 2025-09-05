@@ -170,6 +170,7 @@ export default function ProcessPaymentPage() {
                     productName: item.name,
                     quantity: item.quantity,
                     purchasePrice: item.purchasePrice,
+                    image: item.image, // Add image here
                 })),
                 supplierId: selectedSupplier?.id || null,
                 supplierName: selectedSupplier?.name || "Supplier Umum",
