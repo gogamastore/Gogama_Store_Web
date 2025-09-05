@@ -57,6 +57,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { BarcodeScannerDialog } from "@/components/barcode-scanner-dialog";
 
 
 interface ProductCategory {
@@ -775,6 +776,7 @@ export default function ProductsPage() {
             />
         </div>
         <div className="flex gap-2">
+            <BarcodeScannerDialog onScanSuccess={setSearchTerm} />
             <Select value={sortConfig.key} onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Urutkan berdasarkan" />

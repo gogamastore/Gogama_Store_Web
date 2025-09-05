@@ -51,6 +51,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import * as XLSX from "xlsx";
+import { BarcodeScannerDialog } from "@/components/barcode-scanner-dialog";
 
 
 interface Product {
@@ -327,6 +328,7 @@ export default function StockManagementPage() {
             />
         </div>
         <div className="flex gap-2">
+            <BarcodeScannerDialog onScanSuccess={setSearchTerm} />
             <Select value={sortConfig.key} onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Urutkan berdasarkan" />
