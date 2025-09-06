@@ -51,6 +51,10 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error("Xendit API Error:", error);
+        // Check for Xendit's specific error structure
+        if (error.status && error.code) {
+             return NextResponse.json({ message: error.message, code: error.code }, { status: error.status });
+        }
         return NextResponse.json({ message: error.message || 'An unknown error occurred' }, { status: 500 });
     }
 }
