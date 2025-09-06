@@ -114,6 +114,7 @@ export default function CheckoutPage() {
             ...prev,
             name: userData.name || user.displayName || "",
             whatsapp: userData.whatsapp || "",
+            address: userData.address || ""
           }));
         }
 
@@ -176,8 +177,8 @@ export default function CheckoutPage() {
       if (selected) {
           setCustomerDetails(prev => ({
               ...prev,
-              address: selected.address,
-              whatsapp: selected.whatsapp,
+              address: selected.address || "",
+              whatsapp: selected.whatsapp || "",
           }));
       }
   }
