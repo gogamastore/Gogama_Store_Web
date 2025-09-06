@@ -521,41 +521,70 @@ export default function OrdersPage() {
     // Products Table
     const tableColumn = type === 'invoice' 
         ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
-        : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
+        : ["Gambar", "Kode SKU", "Nama Produk", "Jumlah"];
     
-    // Fetch product details for SKUs if needed
-    const productDetailsMap = new Map<string, { sku: string }>();
-    if (type === 'packingSlip') {
-        const productIds = order.products.map(p => p.productId);
-        if (productIds.length > 0) {
-            const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
-            productDocs.forEach(pDoc => {
-                if (pDoc.exists()) {
-                    productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
-                }
-            });
+    const tableRows = order.products.map((p, index) => {
+        if (type === 'invoice') {
+            return [
+                p.name,
+                p.quantity,
+                formatCurrency(p.price),
+                formatCurrency(p.price * p.quantity)
+            ];
+        } else {
+             return [
+                '', // Placeholder for image
+                p.sku || 'N/A',
+                p.name,
+                p.quantity
+            ];
         }
-    }
+    });
 
-    const tableRows = type === 'invoice'
-        ? order.products.map(p => [
-            p.name,
-            p.quantity,
-            formatCurrency(p.price),
-            formatCurrency(p.price * p.quantity)
-        ])
-        : order.products.map((p, index) => [
-            index + 1,
-            p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
-            p.name,
-            p.quantity
-        ]);
+    const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
+        try {
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error("Error fetching image for PDF:", error);
+            return ""; // Return empty string on failure
+        }
+    };
+    
+    const images = type === 'packingSlip' ? await Promise.all(order.products.map(p => getBase64ImageFromUrl(p.image || ''))) : [];
 
     pdf.autoTable({
         head: [tableColumn],
         body: tableRows,
         startY: currentY + 10,
-        theme: 'grid'
+        theme: 'grid',
+        didDrawCell: (data) => {
+            if (type === 'packingSlip' && data.section === 'body' && data.column.index === 0) {
+                const imgData = images[data.row.index];
+                if (imgData) {
+                    try {
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const imgWidth = 10;
+                        const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+                        const x = data.cell.x + 2;
+                        const y = data.cell.y + 2;
+                        pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+                    } catch (e) {
+                         console.error("Error adding image to PDF cell", e);
+                    }
+                }
+            }
+        },
+        columnStyles: {
+            0: { cellWidth: type === 'packingSlip' ? 14 : 'auto' }
+        },
+        rowPageBreak: 'avoid'
     });
     
     let finalY = (pdf as any).lastAutoTable.finalY;
@@ -1121,3 +1150,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
