@@ -542,8 +542,12 @@ export default function OrdersPage() {
     });
 
     const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
+        // Use a proxy-like approach by adding a timestamp to bypass CORS issues if any.
+        // This is a simplified approach. A true proxy server would be more robust.
+        if (!imageUrl) return "";
         try {
-            const response = await fetch(imageUrl);
+            const response = await fetch(`${imageUrl}&t=${new Date().getTime()}`);
+            if (!response.ok) throw new Error('Image fetch failed');
             const blob = await response.blob();
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1150,5 +1154,7 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     
