@@ -223,68 +223,34 @@ export default function CheckoutPage() {
         subtotal: totalAmount,
         date: serverTimestamp(),
         status: 'Pending' as const,
-        paymentStatus: paymentMethod === 'bank_transfer' && paymentProof ? 'Paid' as const : 'Unpaid' as const,
+        paymentStatus: 'Unpaid' as const, // Always unpaid initially
         paymentMethod: paymentMethod,
         paymentProofUrl: '',
       };
-
-      if (paymentMethod === 'instant_payment') {
-        // Create order in Firestore first, then create Xendit invoice
-        const batch = writeBatch(db);
-        batch.set(orderRef, orderData); // Set the data with the pre-generated ID
-        await batch.commit();
-
-        const response = await fetch('/api/xendit/invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                orderId: orderRef.id,
-                amount: grandTotal,
-                customer: {
-                    given_names: customerDetails.name,
-                    email: user?.email,
-                    mobile_number: customerDetails.whatsapp,
-                },
-                items: cart.map(item => ({
-                    name: item.name,
-                    quantity: item.quantity,
-                    price: item.finalPrice,
-                }))
-            })
-        });
-
-        const invoice = await response.json();
-        if (response.ok) {
-            router.push(invoice.invoice_url);
-        } else {
-            throw new Error(invoice.message || 'Gagal membuat invoice pembayaran.');
-        }
-
-      } else {
-        // Handle normal payment methods (COD, Bank Transfer)
-        const batch = writeBatch(db);
-        let paymentProofUrl = "";
-        if (paymentProof) {
+      
+      // For bank transfers, we might upload proof, but status remains 'Unpaid' until admin confirms
+      if (paymentMethod === 'bank_transfer' && paymentProof) {
           const storage = getStorage();
           const storageRef = ref(storage, `payment_proofs/${orderRef.id}_${paymentProof.name}`);
           await uploadBytes(storageRef, paymentProof);
-          paymentProofUrl = await getDownloadURL(storageRef);
-          orderData.paymentProofUrl = paymentProofUrl;
-        }
+          orderData.paymentProofUrl = await getDownloadURL(storageRef);
+      }
+        
+      const batch = writeBatch(db);
+      
+      batch.set(orderRef, orderData);
 
-        batch.set(orderRef, orderData);
-
-        const notificationRef = doc(collection(db, "notifications"));
-        batch.set(notificationRef, {
+      const notificationRef = doc(collection(db, "notifications"));
+      batch.set(notificationRef, {
             title: "Pesanan Baru",
             body: `Pesanan baru sebesar ${formatCurrency(grandTotal)} dari ${customerDetails.name}.`,
             createdAt: serverTimestamp(),
             type: 'new_order',
             relatedId: orderRef.id,
             isRead: false
-        });
+      });
 
-        for (const item of cart) {
+      for (const item of cart) {
             const productRef = doc(db, "products", item.id);
             const productDoc = await getDoc(productRef);
             if (productDoc.exists()) {
@@ -292,18 +258,48 @@ export default function CheckoutPage() {
                 const newStock = currentStock - item.quantity;
                 batch.update(productRef, { stock: newStock });
             }
-        }
-        
-        await batch.commit();
+      }
+      
+      await batch.commit();
 
-        toast({
+      if (paymentMethod === 'instant_payment') {
+            const response = await fetch('/api/xendit/invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: orderRef.id,
+                    amount: grandTotal,
+                    customer: {
+                        given_names: customerDetails.name,
+                        email: user?.email,
+                        mobile_number: customerDetails.whatsapp,
+                    },
+                    items: cart.map(item => ({
+                        name: item.name,
+                        quantity: item.quantity,
+                        price: item.finalPrice,
+                    }))
+                })
+            });
+
+            const invoice = await response.json();
+            if (response.ok && invoice.invoice_url) {
+                clearCart();
+                router.push(invoice.invoice_url); // Redirect to Xendit
+                return;
+            } else {
+                 throw new Error(invoice.message || 'Gagal membuat invoice pembayaran.');
+            }
+      }
+
+      toast({
             title: "Pesanan Berhasil Dibuat!",
             description: "Terima kasih telah berbelanja.",
-        });
+      });
 
-        clearCart();
-        router.push("/reseller/orders");
-      }
+      clearCart();
+      router.push("/reseller/orders");
+      
     } catch (error) {
          console.error("Error placing order:", error);
          toast({ title: "Gagal Membuat Pesanan", description: "Terjadi kesalahan. Silakan coba lagi.", variant: "destructive" });

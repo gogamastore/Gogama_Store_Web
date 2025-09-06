@@ -125,7 +125,7 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             const orderRef = doc(db, "orders", order.id);
             batch.update(orderRef, { 
                 paymentProofUrl: downloadUrl,
-                paymentStatus: 'Paid' // Automatically mark as paid upon upload
+                // Do not automatically mark as paid. Admin must confirm.
             });
             
             // Create notification
@@ -206,7 +206,20 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
             const response = await fetch('/api/xendit/invoice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: order.id, amount: parseFloat(String(order.total).replace(/[^0-9]/g, '')) })
+                body: JSON.stringify({ 
+                    orderId: order.id, 
+                    amount: parseFloat(String(order.total).replace(/[^0-9]/g, '')),
+                    // We need to pass customer and items again for recreating invoice
+                    customer: {
+                        given_names: order.customer,
+                        email: useAuth().user?.email
+                    },
+                    items: order.products.map(p => ({
+                        name: p.name,
+                        quantity: p.quantity,
+                        price: p.price
+                    }))
+                 })
             });
             const invoice = await response.json();
             if (response.ok) {
@@ -214,8 +227,9 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
             } else {
                 throw new Error(invoice.message || 'Gagal membuat ulang invoice pembayaran.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating new invoice:", error);
+            toast({ variant: 'destructive', title: 'Gagal Membuat Invoice', description: error.message });
         } finally {
             setIsPaying(false);
         }
