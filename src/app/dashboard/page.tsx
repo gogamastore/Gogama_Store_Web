@@ -99,10 +99,10 @@ function DashboardPageContent() {
             const todayStart = startOfDay(new Date());
             const todayEnd = endOfDay(new Date());
 
-            // LANGKAH 1: Mengambil data pesanan yang sudah dikirim atau selesai HARI INI.
+            // LANGKAH 1: Mengambil data pesanan yang perlu dikirim atau sudah dikirim HARI INI.
             const revenueQuery = query(
                 collection(db, "orders"), 
-                where("status", "in", ["Shipped", "Delivered"]),
+                where("status", "in", ["Processing", "Shipped"]),
                 where("date", ">=", todayStart),
                 where("date", "<=", todayEnd)
             );
@@ -204,7 +204,7 @@ function DashboardPageContent() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
-              Total dari pesanan yang selesai hari ini
+              Total dari pesanan yang perlu dikirim & sudah dikirim hari ini
             </p>
           </CardContent>
         </Card>
