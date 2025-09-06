@@ -99,10 +99,10 @@ function DashboardPageContent() {
             const todayStart = startOfDay(new Date());
             const todayEnd = endOfDay(new Date());
 
-            // LANGKAH 1: Mengambil data pesanan yang sudah selesai (Delivered) HARI INI.
+            // LANGKAH 1: Mengambil data pesanan yang sudah dikirim atau selesai HARI INI.
             const revenueQuery = query(
                 collection(db, "orders"), 
-                where("status", "==", "Delivered"),
+                where("status", "in", ["Shipped", "Delivered"]),
                 where("date", ">=", todayStart),
                 where("date", "<=", todayEnd)
             );
