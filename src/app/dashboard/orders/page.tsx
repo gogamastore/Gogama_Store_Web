@@ -72,6 +72,7 @@ interface OrderProduct {
   price: number;
   image?: string;
   sku?: string;
+  purchasePrice?: number;
 }
 interface CustomerDetails {
     name: string;
@@ -520,17 +521,20 @@ export default function OrdersPage() {
     // Products Table
     const tableColumn = type === 'invoice' 
         ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
-        : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
+        : ["No.", "Kode SKU", "Nama Produk", "Jumlah", "Harga Beli", "Harga Jual"];
     
-    // Fetch product details for SKUs if needed
-    const productDetailsMap = new Map<string, { sku: string }>();
+    // Fetch product details for SKUs and Purchase Price if needed
+    const productDetailsMap = new Map<string, { sku: string, purchasePrice: number }>();
     if (type === 'packingSlip') {
         const productIds = order.products.map(p => p.productId);
         if (productIds.length > 0) {
             const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
             productDocs.forEach(pDoc => {
                 if (pDoc.exists()) {
-                    productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
+                    productDetailsMap.set(pDoc.id, { 
+                        sku: pDoc.data().sku || 'N/A',
+                        purchasePrice: pDoc.data().purchasePrice || 0
+                    });
                 }
             });
         }
@@ -547,7 +551,9 @@ export default function OrdersPage() {
             index + 1,
             p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
             p.name,
-            p.quantity
+            p.quantity,
+            formatCurrency(p.purchasePrice || productDetailsMap.get(p.productId)?.purchasePrice || 0),
+            formatCurrency(p.price)
         ]);
 
     pdf.autoTable({
@@ -612,15 +618,17 @@ export default function OrdersPage() {
 
           const tableY = currentY + 10;
           
-          // Fetch product details for SKUs if needed for packing slip
-            const productDetailsMap = new Map<string, { sku: string }>();
+            const productDetailsMap = new Map<string, { sku: string, purchasePrice: number }>();
             if (type === 'packingSlip') {
                 const productIds = order.products.map(p => p.productId);
                 if (productIds.length > 0) {
                     const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
                     productDocs.forEach(pDoc => {
                         if (pDoc.exists()) {
-                            productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
+                           productDetailsMap.set(pDoc.id, { 
+                                sku: pDoc.data().sku || 'N/A',
+                                purchasePrice: pDoc.data().purchasePrice || 0
+                            });
                         }
                     });
                 }
@@ -628,7 +636,7 @@ export default function OrdersPage() {
             
           const tableColumn = type === 'invoice' 
               ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
-              : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
+              : ["No.", "Kode SKU", "Nama Produk", "Jumlah", "Harga Beli", "Harga Jual"];
           
           const tableRows = type === 'invoice'
               ? order.products.map(p => [
@@ -641,7 +649,9 @@ export default function OrdersPage() {
                   index + 1,
                   p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
                   p.name,
-                  p.quantity
+                  p.quantity,
+                  formatCurrency(p.purchasePrice || productDetailsMap.get(p.productId)?.purchasePrice || 0),
+                  formatCurrency(p.price)
               ]);
 
           pdf.autoTable({
