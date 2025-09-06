@@ -1,3 +1,4 @@
+
 import { xenditClient } from '@/lib/xendit';
 import { NextResponse } from 'next/server';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -28,12 +29,18 @@ export async function POST(request: Request) {
 
         // Check if an invoice was already created for this order
         if (orderData.xenditInvoiceId) {
-            invoice = await invoiceClient.getInvoice({ invoiceID: orderData.xenditInvoiceId });
-            // If the invoice is expired, create a new one.
-             if (new Date(invoice.expiry_date) < new Date()) {
-                  invoice = await createNewInvoice(orderId, amount, customer, items);
-                  await updateDoc(orderRef, { xenditInvoiceId: invoice.id });
-             }
+            try {
+                invoice = await invoiceClient.getInvoice({ invoiceID: orderData.xenditInvoiceId });
+                 // If the invoice is expired or paid, create a new one.
+                if (new Date(invoice.expiry_date) < new Date() || invoice.status === 'PAID') {
+                    invoice = await createNewInvoice(orderId, amount, customer, items);
+                    await updateDoc(orderRef, { xenditInvoiceId: invoice.id });
+                }
+            } catch (error) {
+                 // If getting the invoice fails (e.g., not found), create a new one.
+                 invoice = await createNewInvoice(orderId, amount, customer, items);
+                 await updateDoc(orderRef, { xenditInvoiceId: invoice.id });
+            }
         } else {
              invoice = await createNewInvoice(orderId, amount, customer, items);
              await updateDoc(orderRef, { xenditInvoiceId: invoice.id });
