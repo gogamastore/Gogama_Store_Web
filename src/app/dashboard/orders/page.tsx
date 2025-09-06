@@ -521,7 +521,7 @@ export default function OrdersPage() {
     // Products Table
     const tableColumn = type === 'invoice' 
         ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
-        : ["Gambar", "Kode SKU", "Nama Produk", "Jumlah"];
+        : ["Kode SKU", "Nama Produk", "Jumlah"];
     
     const tableRows = order.products.map((p, index) => {
         if (type === 'invoice') {
@@ -533,7 +533,6 @@ export default function OrdersPage() {
             ];
         } else {
              return [
-                '', // Placeholder for image
                 p.sku || 'N/A',
                 p.name,
                 p.quantity
@@ -541,53 +540,11 @@ export default function OrdersPage() {
         }
     });
 
-    const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
-        // Use a proxy-like approach by adding a timestamp to bypass CORS issues if any.
-        // This is a simplified approach. A true proxy server would be more robust.
-        if (!imageUrl) return "";
-        try {
-            const response = await fetch(`${imageUrl}&t=${new Date().getTime()}`);
-            if (!response.ok) throw new Error('Image fetch failed');
-            const blob = await response.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (error) {
-            console.error("Error fetching image for PDF:", error);
-            return ""; // Return empty string on failure
-        }
-    };
-    
-    const images = type === 'packingSlip' ? await Promise.all(order.products.map(p => getBase64ImageFromUrl(p.image || ''))) : [];
-
     pdf.autoTable({
         head: [tableColumn],
         body: tableRows,
         startY: currentY + 10,
         theme: 'grid',
-        didDrawCell: (data) => {
-            if (type === 'packingSlip' && data.section === 'body' && data.column.index === 0) {
-                const imgData = images[data.row.index];
-                if (imgData) {
-                    try {
-                        const imgProps = pdf.getImageProperties(imgData);
-                        const imgWidth = 10;
-                        const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-                        const x = data.cell.x + 2;
-                        const y = data.cell.y + 2;
-                        pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
-                    } catch (e) {
-                         console.error("Error adding image to PDF cell", e);
-                    }
-                }
-            }
-        },
-        columnStyles: {
-            0: { cellWidth: type === 'packingSlip' ? 14 : 'auto' }
-        },
         rowPageBreak: 'avoid'
     });
     
