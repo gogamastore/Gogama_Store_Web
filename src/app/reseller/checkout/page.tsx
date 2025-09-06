@@ -262,36 +262,6 @@ export default function CheckoutPage() {
       
       await batch.commit();
 
-      if (paymentMethod === 'instant_payment') {
-            const response = await fetch('/api/xendit/invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: orderRef.id,
-                    amount: grandTotal,
-                    customer: {
-                        given_names: customerDetails.name,
-                        email: user?.email,
-                        mobile_number: customerDetails.whatsapp,
-                    },
-                    items: cart.map(item => ({
-                        name: item.name,
-                        quantity: item.quantity,
-                        price: item.finalPrice,
-                    }))
-                })
-            });
-
-            const invoice = await response.json();
-            if (response.ok && invoice.invoice_url) {
-                clearCart();
-                router.push(invoice.invoice_url); // Redirect to Xendit
-                return;
-            } else {
-                 throw new Error(invoice.message || 'Gagal membuat invoice pembayaran.');
-            }
-      }
-
       toast({
             title: "Pesanan Berhasil Dibuat!",
             description: "Terima kasih telah berbelanja.",
@@ -303,6 +273,7 @@ export default function CheckoutPage() {
     } catch (error) {
          console.error("Error placing order:", error);
          toast({ title: "Gagal Membuat Pesanan", description: "Terjadi kesalahan. Silakan coba lagi.", variant: "destructive" });
+    } finally {
          setIsProcessing(false);
     }
   };
@@ -418,18 +389,6 @@ export default function CheckoutPage() {
                     <CardHeader><CardTitle>3. Metode Pembayaran</CardTitle></CardHeader>
                     <CardContent>
                         <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                           <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
-                                <RadioGroupItem value="instant_payment" id="instant_payment" />
-                                <Label htmlFor="instant_payment" className="flex-1 cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <Zap className="h-6 w-6 text-yellow-500"/>
-                                        <div>
-                                            <p className="font-semibold">Instant Payment</p>
-                                            <p className="text-sm text-muted-foreground">Bayar dengan Kartu Kredit, QRIS, e-Wallet, dll.</p>
-                                        </div>
-                                    </div>
-                                </Label>
-                            </div>
                             <div className="flex flex-col space-y-4 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="bank_transfer" id="bank_transfer" />
