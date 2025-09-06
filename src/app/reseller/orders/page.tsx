@@ -199,6 +199,8 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
     
     const router = useRouter();
     const [isPaying, setIsPaying] = useState(false);
+    const { user } = useAuth();
+    const { toast } = useToast();
 
     const handlePayNow = async () => {
         setIsPaying(true);
@@ -212,7 +214,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     // We need to pass customer and items again for recreating invoice
                     customer: {
                         given_names: order.customer,
-                        email: useAuth().user?.email
+                        email: user?.email
                     },
                     items: order.products.map(p => ({
                         name: p.name,
