@@ -21,7 +21,7 @@ import { DollarSign, Package, ShoppingCart, Users, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { format, subMonths } from "date-fns"
+import { format, subMonths, startOfDay, endOfDay } from "date-fns"
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useAuth } from "@/hooks/use-auth"
 import { useRouter } from "next/navigation"
@@ -96,24 +96,37 @@ function DashboardPageContent() {
     // Fungsi ini bertanggung jawab untuk mengambil semua data yang diperlukan untuk dasbor dari Firestore.
     async function fetchDashboardData() {
         try {
-            // LANGKAH 1: Mengambil data pesanan yang sudah selesai (Delivered).
-            // Data ini digunakan untuk menghitung Total Pendapatan dan Jumlah Penjualan.
-            const ordersQuery = query(collection(db, "orders"), where("status", "==", "Delivered"));
-            const ordersSnapshot = await getDocs(ordersQuery);
-            let totalRevenue = 0;
-            ordersSnapshot.forEach(doc => {
-                // Membersihkan format mata uang dari string total dan menjadikannya angka.
+            const todayStart = startOfDay(new Date());
+            const todayEnd = endOfDay(new Date());
+
+            // LANGKAH 1: Mengambil data pesanan yang sudah selesai (Delivered) HARI INI.
+            const revenueQuery = query(
+                collection(db, "orders"), 
+                where("status", "==", "Delivered"),
+                where("date", ">=", todayStart),
+                where("date", "<=", todayEnd)
+            );
+            const revenueSnapshot = await getDocs(revenueQuery);
+            let totalRevenueToday = 0;
+            revenueSnapshot.forEach(doc => {
                 const totalString = doc.data().total?.toString().replace(/[^0-9]/g, '') || '0';
-                totalRevenue += parseFloat(totalString);
+                totalRevenueToday += parseFloat(totalString);
             });
 
-            // LANGKAH 2: Mengambil data pengguna dengan peran 'reseller'.
-            // Ini digunakan untuk menghitung jumlah pelanggan baru di kartu statistik.
+            // LANGKAH 2: Mengambil pesanan baru (Pending/Processing) HARI INI.
+            const newOrdersQuery = query(
+                collection(db, "orders"),
+                where("status", "in", ["Pending", "Processing"]),
+                where("date", ">=", todayStart),
+                where("date", "<=", todayEnd)
+            );
+            const newOrdersSnapshot = await getDocs(newOrdersQuery);
+
+            // LANGKAH 3: Mengambil data pengguna dengan peran 'reseller'.
             const usersQuery = query(collection(db, "user"), where("role", "==", "reseller"));
             const usersSnapshot = await getDocs(usersQuery);
 
-            // LANGKAH 3: Mengambil semua data produk.
-            // Digunakan untuk menghitung total produk yang ada dan jumlah produk yang stoknya menipis (<= 5).
+            // LANGKAH 4: Mengambil semua data produk.
             const productsSnapshot = await getDocs(collection(db, "products"));
             let lowStockCount = 0;
             productsSnapshot.forEach(doc => {
@@ -122,37 +135,36 @@ function DashboardPageContent() {
                 }
             });
             
-            // Menyimpan semua hasil perhitungan ke dalam state untuk ditampilkan di kartu statistik.
             setStats({
-                totalRevenue: totalRevenue,
-                salesCount: ordersSnapshot.size,
+                totalRevenue: totalRevenueToday,
+                salesCount: newOrdersSnapshot.size,
                 newCustomers: usersSnapshot.size,
                 productsInStock: productsSnapshot.size,
                 lowStockCount: lowStockCount
             });
 
-            // LANGKAH 4: Memproses data penjualan untuk grafik 6 bulan terakhir.
-            // Menggunakan data pesanan yang sudah selesai dari LANGKAH 1.
+            // LANGKAH 5: Memproses data penjualan untuk grafik 6 bulan terakhir.
+            const allDeliveredOrdersQuery = query(collection(db, "orders"), where("status", "==", "Delivered"));
+            const allDeliveredOrdersSnapshot = await getDocs(allDeliveredOrdersQuery);
             const monthlySales: { [key: string]: number } = {};
-            for (let i = 5; i >= 0; i--) { // Loop untuk 6 bulan (termasuk bulan ini)
+            for (let i = 5; i >= 0; i--) { 
                 const targetMonth = subMonths(new Date(), i);
                 const monthKey = format(targetMonth, "yyyy-MM");
-                monthlySales[monthKey] = 0; // Inisialisasi penjualan bulan tersebut ke 0.
+                monthlySales[monthKey] = 0;
             }
 
-            ordersSnapshot.docs.forEach(doc => {
+            allDeliveredOrdersSnapshot.docs.forEach(doc => {
                 const orderData = doc.data();
                 if(orderData.date && orderData.date.toDate) {
                     const orderDate = orderData.date.toDate();
                     const monthKey = format(orderDate, "yyyy-MM");
-                    if(monthlySales.hasOwnProperty(monthKey)) { // Cek apakah pesanan masuk dalam 6 bulan terakhir.
+                    if(monthlySales.hasOwnProperty(monthKey)) {
                          const totalString = orderData.total?.toString().replace(/[^0-9]/g, '') || '0';
                          monthlySales[monthKey] += parseFloat(totalString);
                     }
                 }
             });
-
-            // Mengubah data penjualan bulanan menjadi format yang dibutuhkan oleh komponen grafik.
+            
             const chartData = Object.keys(monthlySales).map(key => ({
                 name: format(new Date(key), "MMM", { locale: dateFnsLocaleId }),
                 sales: monthlySales[key]
@@ -160,8 +172,7 @@ function DashboardPageContent() {
             setSalesData(chartData);
 
 
-            // LANGKAH 5: Mengambil 5 pesanan terbaru (tanpa filter status).
-            // Diurutkan berdasarkan tanggal terbaru dan dibatasi hanya 5 dokumen.
+            // LANGKAH 6: Mengambil 5 pesanan terbaru (tanpa filter status).
             const recentOrdersQuery = query(collection(db, "orders"), orderBy("date", "desc"), limit(5));
             const recentOrdersSnapshot = await getDocs(recentOrdersQuery);
             const recentOrdersData = recentOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
@@ -186,28 +197,28 @@ function DashboardPageContent() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Revenue
+              Revenue Hari Ini
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
-              Total dari pesanan yang selesai
+              Total dari pesanan yang selesai hari ini
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Sales
+              Pesanan Baru Hari Ini
             </CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">+{stats.salesCount}</div>
             <p className="text-xs text-muted-foreground">
-              Jumlah pesanan yang selesai
+              Pesanan belum diproses & perlu dikirim
             </p>
           </CardContent>
         </Card>
