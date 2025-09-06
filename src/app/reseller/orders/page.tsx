@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud, XCircle, Eye, Printer, CheckCircle } from 'lucide-react';
+import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud, XCircle, Eye, Printer, CheckCircle, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
@@ -67,7 +67,7 @@ interface Order {
   id: string;
   customer: string;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
-  paymentMethod: 'bank_transfer' | 'cod';
+  paymentMethod: 'bank_transfer' | 'cod' | 'instant_payment';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
   total: string;
@@ -197,6 +197,30 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
 
 function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: Order, onCancelOrder: (order: Order) => void, onUploadSuccess: (orderId: string, url: string) => void }) {
     
+    const router = useRouter();
+    const [isPaying, setIsPaying] = useState(false);
+
+    const handlePayNow = async () => {
+        setIsPaying(true);
+        try {
+            const response = await fetch('/api/xendit/invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id, amount: parseFloat(String(order.total).replace(/[^0-9]/g, '')) })
+            });
+            const invoice = await response.json();
+            if (response.ok) {
+                router.push(invoice.invoice_url);
+            } else {
+                throw new Error(invoice.message || 'Gagal membuat ulang invoice pembayaran.');
+            }
+        } catch (error) {
+            console.error("Error creating new invoice:", error);
+        } finally {
+            setIsPaying(false);
+        }
+    }
+
     const generatePdf = () => {
         const pdfDoc = new jsPDF();
         pdfDoc.setFontSize(20);
@@ -318,19 +342,27 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     <Button onClick={generatePdf} variant="secondary">
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
-                     {(order.status === 'Pending' || order.status === 'Processing') && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive">
-                                    <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Tidak</AlertDialogCancel><AlertDialogAction onClick={() => onCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                     )}
+                     <div className='flex items-center gap-2'>
+                        {order.paymentMethod === 'instant_payment' && order.paymentStatus === 'Unpaid' && order.status !== 'Cancelled' && (
+                            <Button onClick={handlePayNow} disabled={isPaying}>
+                                {isPaying ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CreditCard className="mr-2 h-4 w-4"/>}
+                                Bayar Sekarang
+                            </Button>
+                        )}
+                        {(order.status === 'Pending' || order.status === 'Processing') && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive">
+                                        <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Tidak</AlertDialogCancel><AlertDialogAction onClick={() => onCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                    </div>
                  </DialogFooter>
             </DialogContent>
         </Dialog>

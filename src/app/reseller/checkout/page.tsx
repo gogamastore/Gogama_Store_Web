@@ -42,6 +42,7 @@ import {
   Home,
   PlusCircle,
   ArrowLeft,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -192,57 +193,86 @@ export default function CheckoutPage() {
   const grandTotal = useMemo(() => totalAmount + shippingFee, [totalAmount, shippingFee]);
 
 
-  const handlePlaceOrder = async () => {
+ const handlePlaceOrder = async () => {
     if (!customerDetails.name || !customerDetails.address || !customerDetails.whatsapp) {
-        toast({ title: "Data tidak lengkap", description: "Harap isi semua detail pelanggan.", variant: "destructive" });
-        return;
+      toast({ title: "Data tidak lengkap", description: "Harap isi semua detail pelanggan.", variant: "destructive" });
+      return;
     }
-    
     setIsProcessing(true);
-    
-    const batch = writeBatch(db);
 
     try {
-        let paymentProofUrl = "";
-        if (paymentProof) {
-            const storage = getStorage();
-            const storageRef = ref(storage, `payment_proofs/${Date.now()}_${paymentProof.name}`);
-            await uploadBytes(storageRef, paymentProof);
-            paymentProofUrl = await getDownloadURL(storageRef);
+      const orderRef = doc(collection(db, "orders")); // Generate a new order ID first
+      
+      const orderData = {
+        customer: customerDetails.name,
+        customerDetails: customerDetails,
+        customerId: user?.uid || 'guest',
+        products: cart.map(item => ({
+          productId: item.id,
+          name: item.name,
+          price: item.finalPrice,
+          quantity: item.quantity,
+          image: item.image,
+          sku: item.sku,
+        })),
+        productIds: cart.map(item => item.id),
+        total: formatCurrency(grandTotal),
+        shippingFee: shippingFee,
+        shippingMethod: shippingMethod,
+        subtotal: totalAmount,
+        date: serverTimestamp(),
+        status: 'Pending' as const,
+        paymentStatus: paymentMethod === 'bank_transfer' && paymentProof ? 'Paid' as const : 'Unpaid' as const,
+        paymentMethod: paymentMethod,
+        paymentProofUrl: '',
+      };
+
+      if (paymentMethod === 'instant_payment') {
+        // Create order in Firestore first, then create Xendit invoice
+        const batch = writeBatch(db);
+        batch.set(orderRef, orderData); // Set the data with the pre-generated ID
+        await batch.commit();
+
+        const response = await fetch('/api/xendit/invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orderId: orderRef.id,
+                amount: grandTotal,
+                customer: {
+                    given_names: customerDetails.name,
+                    email: user?.email,
+                    mobile_number: customerDetails.whatsapp,
+                },
+                items: cart.map(item => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    price: item.finalPrice,
+                }))
+            })
+        });
+
+        const invoice = await response.json();
+        if (response.ok) {
+            router.push(invoice.invoice_url);
+        } else {
+            throw new Error(invoice.message || 'Gagal membuat invoice pembayaran.');
         }
 
-        // Always set status to 'Pending' for all new orders
-        const initialStatus: 'Pending' = 'Pending';
-        
-        // 1. Create a new order document reference in the batch
-        const orderRef = doc(collection(db, "orders"));
-        const productIds = cart.map(item => item.id); // Create an array of product IDs for querying
-        const orderData = {
-            customer: customerDetails.name,
-            customerDetails: customerDetails,
-            customerId: user?.uid || 'guest',
-            products: cart.map(item => ({
-                productId: item.id,
-                name: item.name,
-                price: item.finalPrice,
-                quantity: item.quantity,
-                image: item.image,
-                sku: item.sku,
-            })),
-            productIds: productIds, // Add the productIds array
-            total: formatCurrency(grandTotal),
-            shippingFee: shippingFee,
-            shippingMethod: shippingMethod,
-            subtotal: totalAmount,
-            date: serverTimestamp(),
-            status: initialStatus,
-            paymentStatus: paymentProof ? 'Paid' : 'Unpaid',
-            paymentMethod: paymentMethod,
-            paymentProofUrl: paymentProofUrl,
-        };
+      } else {
+        // Handle normal payment methods (COD, Bank Transfer)
+        const batch = writeBatch(db);
+        let paymentProofUrl = "";
+        if (paymentProof) {
+          const storage = getStorage();
+          const storageRef = ref(storage, `payment_proofs/${orderRef.id}_${paymentProof.name}`);
+          await uploadBytes(storageRef, paymentProof);
+          paymentProofUrl = await getDownloadURL(storageRef);
+          orderData.paymentProofUrl = paymentProofUrl;
+        }
+
         batch.set(orderRef, orderData);
 
-        // 2. Create a notification for the new order
         const notificationRef = doc(collection(db, "notifications"));
         batch.set(notificationRef, {
             title: "Pesanan Baru",
@@ -253,7 +283,6 @@ export default function CheckoutPage() {
             isRead: false
         });
 
-        // 3. Update stock for each product in the batch
         for (const item of cart) {
             const productRef = doc(db, "products", item.id);
             const productDoc = await getDoc(productRef);
@@ -264,22 +293,20 @@ export default function CheckoutPage() {
             }
         }
         
-        // 4. Commit the batch
         await batch.commit();
 
         toast({
             title: "Pesanan Berhasil Dibuat!",
-            description: "Terima kasih telah berbelanja. Stok produk telah diperbarui.",
+            description: "Terima kasih telah berbelanja.",
         });
 
         clearCart();
-        router.push("/reseller/orders"); // Redirect to order history page
-
+        router.push("/reseller/orders");
+      }
     } catch (error) {
          console.error("Error placing order:", error);
          toast({ title: "Gagal Membuat Pesanan", description: "Terjadi kesalahan. Silakan coba lagi.", variant: "destructive" });
-    } finally {
-        setIsProcessing(false);
+         setIsProcessing(false);
     }
   };
 
@@ -394,6 +421,18 @@ export default function CheckoutPage() {
                     <CardHeader><CardTitle>3. Metode Pembayaran</CardTitle></CardHeader>
                     <CardContent>
                         <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                           <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <RadioGroupItem value="instant_payment" id="instant_payment" />
+                                <Label htmlFor="instant_payment" className="flex-1 cursor-pointer">
+                                    <div className="flex items-center gap-4">
+                                        <Zap className="h-6 w-6 text-yellow-500"/>
+                                        <div>
+                                            <p className="font-semibold">Instant Payment</p>
+                                            <p className="text-sm text-muted-foreground">Bayar dengan Kartu Kredit, QRIS, e-Wallet, dll.</p>
+                                        </div>
+                                    </div>
+                                </Label>
+                            </div>
                             <div className="flex flex-col space-y-4 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
                                 <div className="flex items-center space-x-2">
                                     <RadioGroupItem value="bank_transfer" id="bank_transfer" />
@@ -506,5 +545,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-
-    
