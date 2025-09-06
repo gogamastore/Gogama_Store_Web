@@ -12,8 +12,8 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { orderId, amount, customer, items } = body;
 
-        if (!orderId || !amount) {
-            return NextResponse.json({ message: 'Order ID and amount are required.' }, { status: 400 });
+        if (!orderId || !amount || !customer || !items) {
+            return NextResponse.json({ message: 'Order ID, amount, customer, and items are required.' }, { status: 400 });
         }
         
         const orderRef = doc(db, "orders", orderId);
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         if (orderData.xenditInvoiceId) {
             invoice = await invoiceClient.getInvoice({ invoiceID: orderData.xenditInvoiceId });
             // If the invoice is expired, create a new one.
-             if (new Date(invoice.expiryDate) < new Date()) {
+             if (new Date(invoice.expiry_date) < new Date()) {
                   invoice = await createNewInvoice(orderId, amount, customer, items);
                   await updateDoc(orderRef, { xenditInvoiceId: invoice.id });
              }
