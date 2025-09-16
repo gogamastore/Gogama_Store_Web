@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -37,6 +36,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -45,7 +50,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft, Printer, Banknote, CreditCard } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft, Printer, Banknote, CreditCard, Code } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -91,6 +96,7 @@ interface PurchaseTransaction {
   items: PurchaseItem[];
   supplierName?: string;
   paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
+  paymentStatus?: 'paid' | 'unpaid';
 }
 
 // Helper function to format currency
@@ -606,13 +612,28 @@ function PurchaseDetailDialog({ transaction, onPurchaseUpdated }: { transaction:
                             Total Pembelian: {formatCurrency(transaction.totalAmount)}
                         </div>
                     </div>
+                     <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger>
+                                <div className="flex items-center gap-2 text-sm">
+                                    <Code className="h-4 w-4"/>
+                                    <span>Tampilkan Struktur Data</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto">
+                                    <code>{JSON.stringify(transaction, null, 2)}</code>
+                                </pre>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </div>
                 <DialogFooter className="justify-between">
                     <div className="flex gap-2">
                          <Button onClick={generatePdf} variant="outline">
                             <Printer className="mr-2 h-4 w-4"/> Download Faktur
                         </Button>
-                        {transaction.paymentMethod === 'credit' && (
+                        {transaction.paymentMethod === 'credit' && transaction.paymentStatus !== 'paid' && (
                             <PaymentDialog transaction={transaction} onPaymentSuccess={onPurchaseUpdated}/>
                         )}
                     </div>
@@ -766,7 +787,6 @@ export default function PurchasesReportPage() {
                         mode="range"
                         defaultMonth={dateRange?.from}
                         selected={dateRange}
-                        onSelect={setDateRange}
                         numberOfMonths={2}
                     />
                 </PopoverContent>
@@ -854,8 +874,8 @@ export default function PurchasesReportPage() {
                         <TableCell>{format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>{transaction.supplierName || 'N/A'}</TableCell>
                         <TableCell>
-                            <Badge variant={transaction.paymentMethod === 'credit' ? 'destructive' : 'default'}>
-                                {transaction.paymentMethod === 'credit' ? 'Kredit' : 'Lunas'}
+                            <Badge variant={transaction.paymentMethod === 'credit' && transaction.paymentStatus !== 'paid' ? 'destructive' : 'default'}>
+                                {transaction.paymentMethod === 'credit' && transaction.paymentStatus !== 'paid' ? 'Kredit' : 'Lunas'}
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -882,3 +902,6 @@ export default function PurchasesReportPage() {
   );
 }
 
+
+
+    

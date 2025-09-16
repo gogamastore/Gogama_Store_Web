@@ -72,7 +72,6 @@ interface OrderProduct {
   price: number;
   image?: string;
   sku?: string;
-  purchasePrice?: number;
 }
 interface CustomerDetails {
     name: string;
@@ -521,31 +520,41 @@ export default function OrdersPage() {
     // Products Table
     const tableColumn = type === 'invoice' 
         ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
-        : ["Kode SKU", "Nama Produk", "Jumlah"];
+        : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
     
-    const tableRows = order.products.map((p, index) => {
-        if (type === 'invoice') {
-            return [
-                p.name,
-                p.quantity,
-                formatCurrency(p.price),
-                formatCurrency(p.price * p.quantity)
-            ];
-        } else {
-             return [
-                p.sku || 'N/A',
-                p.name,
-                p.quantity
-            ];
+    // Fetch product details for SKUs if needed
+    const productDetailsMap = new Map<string, { sku: string }>();
+    if (type === 'packingSlip') {
+        const productIds = order.products.map(p => p.productId);
+        if (productIds.length > 0) {
+            const productDocs = await Promise.all(productIds.map(id => getDoc(doc(db, "products", id))));
+            productDocs.forEach(pDoc => {
+                if (pDoc.exists()) {
+                    productDetailsMap.set(pDoc.id, { sku: pDoc.data().sku || 'N/A' });
+                }
+            });
         }
-    });
+    }
+
+    const tableRows = type === 'invoice'
+        ? order.products.map(p => [
+            p.name,
+            p.quantity,
+            formatCurrency(p.price),
+            formatCurrency(p.price * p.quantity)
+        ])
+        : order.products.map((p, index) => [
+            index + 1,
+            p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
+            p.name,
+            p.quantity
+        ]);
 
     pdf.autoTable({
         head: [tableColumn],
         body: tableRows,
         startY: currentY + 10,
-        theme: 'grid',
-        rowPageBreak: 'avoid'
+        theme: 'grid'
     });
     
     let finalY = (pdf as any).lastAutoTable.finalY;
@@ -603,6 +612,7 @@ export default function OrdersPage() {
 
           const tableY = currentY + 10;
           
+          // Fetch product details for SKUs if needed for packing slip
             const productDetailsMap = new Map<string, { sku: string }>();
             if (type === 'packingSlip') {
                 const productIds = order.products.map(p => p.productId);
@@ -964,7 +974,7 @@ export default function OrdersPage() {
                                                 <Printer className="mr-2 h-4 w-4" /> Download Faktur
                                              </DropdownMenuItem>
                                              <DropdownMenuItem onClick={() => generatePdf(order.id, 'packingSlip')}>
-                                                <FileBox className="mr-2 h-4 w-4" /> Download Slip Pengepakan
+                                                <FileBox className="mr-2 h-4 w-4" /> Download Pesanan
                                              </DropdownMenuItem>
                                              <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
                                              {(order.status === 'Pending' || order.status === 'Processing') && (
@@ -1065,7 +1075,7 @@ export default function OrdersPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => generateBulkDocuments('packingSlip')}>
                             <FileBox className="mr-2 h-4 w-4" />
-                            Slip Pengepakan
+                            Dokumen Pesanan
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -1111,7 +1121,3 @@ export default function OrdersPage() {
     </Card>
   )
 }
-
-    
-
-    
