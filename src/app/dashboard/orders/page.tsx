@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -85,9 +84,9 @@ interface Order {
   customerDetails?: CustomerDetails;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
   paymentStatus: 'Paid' | 'Unpaid';
-  paymentMethod?: 'cod' | 'bank_transfer'; // Optional to handle mobile app data
+  paymentMethod?: 'cod' | 'bank_transfer';
   paymentProofUrl?: string;
-  total: string | number; // Allow number for mobile app data
+  total: number;
   subtotal: number;
   shippingFee: number;
   shippingMethod?: string;
@@ -97,8 +96,7 @@ interface Order {
 }
 
 const formatCurrency = (amount: number | string) => {
-    // Handle both string with "Rp" and pure numbers
-    const numericAmount = typeof amount === 'string' ? parseFloat(amount.replace(/[^0-9]/g, '')) : amount;
+    const numericAmount = typeof amount === 'string' ? parseFloat(String(amount).replace(/[^0-9]/g, '')) : amount;
     if (isNaN(numericAmount)) {
         return 'Rp 0';
     }
@@ -294,7 +292,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                 products: editableProducts,
                 shippingFee: shippingFee,
                 subtotal: subtotal,
-                total: formatCurrency(newTotal),
+                total: newTotal,
             });
             
             await batch.commit();
@@ -432,14 +430,25 @@ export default function OrdersPage() {
         const querySnapshot = await getDocs(q);
         const ordersData = querySnapshot.docs.map(doc => {
              const data = doc.data();
-             const products = data.products?.map((p: any) => ({
+
+            // Normalize status to have capital letter
+            let status = data.status || 'Pending';
+            status = status.charAt(0).toUpperCase() + status.slice(1);
+            if (status.toLowerCase() === 'processing') status = 'Processing'; // Handle specific cases if needed
+
+             // Normalize prices and total
+            const products = data.products?.map((p: any) => ({
                  ...p,
                  price: typeof p.price === 'string' ? parseFloat(p.price.replace(/[^0-9]/g, '')) : p.price
              })) || [];
+            const total = typeof data.total === 'string' ? parseFloat(data.total.replace(/[^0-9]/g, '')) : data.total || 0;
+
             return {
                 id: doc.id,
                 ...data,
+                status: status,
                 products,
+                total,
                 shippingFee: data.shippingFee || 0,
                 subtotal: data.subtotal || 0,
             } as Order
@@ -490,7 +499,10 @@ export default function OrdersPage() {
         toast({ variant: "destructive", title: "Pesanan tidak ditemukan" });
         return;
     }
-    const order = { id: orderDoc.id, ...orderDoc.data() } as Order;
+    const orderData = orderDoc.data();
+    const total = typeof orderData.total === 'string' ? parseFloat(orderData.total.replace(/[^0-9]/g, '')) : orderData.total || 0;
+    const order = { id: orderDoc.id, ...orderData, total } as Order;
+
 
     const pdf = new jsPDF();
     
@@ -948,7 +960,7 @@ export default function OrdersPage() {
                                 </div>
                                <div className="col-span-4 md:col-span-3 text-sm">
                                     <p className="text-muted-foreground">Jasa Kirim</p>
-                                    <p className="font-semibold">{order.shippingMethod === 'pickup' ? 'Jemput Sendiri' : 'Ekspedisi'}</p>
+                                    <p className="font-semibold">{order.shippingMethod === 'pickup' ? 'Jemput Sendiri' : (order.shippingMethod || 'Ekspedisi')}</p>
                                 </div>
                            </div>
                         </CardContent>
@@ -1121,3 +1133,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
