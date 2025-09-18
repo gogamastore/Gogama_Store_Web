@@ -272,20 +272,25 @@ export default function ReceivablesReportPage() {
     const fetchReceivables = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "orders"), where("paymentStatus", "==", "Unpaid"), where("status", "in", ["Shipped", "Delivered"]));
+        const q = query(collection(db, "orders"), where("paymentStatus", "in", ["Unpaid", "unpaid"]));
         const querySnapshot = await getDocs(q);
-        const receivableOrders = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            const total = typeof data.total === 'string' 
-                ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
-                : typeof data.total === 'number' ? data.total : 0;
-            return { 
-                id: doc.id, 
-                ...data,
-                total,
-                date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
-            } as Order;
-        });
+        const receivableOrders = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data();
+                // Normalize total to be a number
+                const total = typeof data.total === 'string' 
+                    ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
+                    : typeof data.total === 'number' ? data.total : 0;
+                
+                return { 
+                    id: doc.id, 
+                    ...data,
+                    total,
+                    date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
+                } as Order;
+            })
+            // Post-filter by status in the code
+            .filter(order => ['Shipped', 'Delivered'].includes(order.status));
 
         setAllReceivables(receivableOrders);
         setFilteredReceivables(receivableOrders); // Initially show all receivables
@@ -467,4 +472,5 @@ export default function ReceivablesReportPage() {
     </div>
   );
 }
+
 
