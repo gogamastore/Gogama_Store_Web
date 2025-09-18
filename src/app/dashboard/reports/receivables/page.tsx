@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -75,7 +74,7 @@ interface FullOrder {
 interface Order {
   id: string;
   customer: string;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
   paymentStatus: 'Paid' | 'Unpaid';
   total: number;
   date: string; // ISO 8601 string
@@ -274,6 +273,7 @@ export default function ReceivablesReportPage() {
       try {
         const q = query(collection(db, "orders"), where("paymentStatus", "in", ["Unpaid", "unpaid"]));
         const querySnapshot = await getDocs(q);
+        
         const receivableOrders = querySnapshot.docs
             .map(doc => {
                 const data = doc.data();
@@ -282,15 +282,19 @@ export default function ReceivablesReportPage() {
                     ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
                     : typeof data.total === 'number' ? data.total : 0;
                 
+                // Normalize status to handle capitalization
+                const status = (data.status || '').toLowerCase();
+
                 return { 
                     id: doc.id, 
                     ...data,
+                    status: status, // Use normalized status
                     total,
                     date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
                 } as Order;
             })
-            // Post-filter by status in the code
-            .filter(order => ['Shipped', 'Delivered'].includes(order.status));
+            // Post-filter by status in the code to include all relevant, non-cancelled orders
+            .filter(order => order.status !== 'cancelled');
 
         setAllReceivables(receivableOrders);
         setFilteredReceivables(receivableOrders); // Initially show all receivables
@@ -444,12 +448,12 @@ export default function ReceivablesReportPage() {
                         <Badge
                             variant="outline"
                             className={
-                                order.status === 'Delivered' ? 'text-green-600 border-green-600' : 
-                                order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                                order.status === 'delivered' ? 'text-green-600 border-green-600' : 
+                                order.status === 'shipped' ? 'text-blue-600 border-blue-600' :
                                 'text-yellow-600 border-yellow-600'
                             }
                         >
-                            {order.status}
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
@@ -460,6 +464,7 @@ export default function ReceivablesReportPage() {
                 ) : (
                     <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
+                        <FileWarning className="h-8 w-8 mx-auto text-muted-foreground mb-2"/>
                         Tidak ada data piutang untuk rentang tanggal ini.
                     </TableCell>
                     </TableRow>
@@ -474,3 +479,5 @@ export default function ReceivablesReportPage() {
 }
 
 
+
+    
