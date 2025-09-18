@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -36,7 +35,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft, Banknote, Package, Printer } from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft, Banknote, Package, Printer, CreditCard } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -44,6 +43,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { useToast } from "@/hooks/use-toast";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -64,6 +67,7 @@ interface FullPurchaseTransaction {
   items: PurchaseItem[];
   supplierName?: string;
   paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
+  paymentStatus?: 'paid' | 'unpaid';
 }
 
 interface PurchaseTransaction {
@@ -71,6 +75,8 @@ interface PurchaseTransaction {
   date: string; // ISO 8601 string
   totalAmount: number;
   supplierName?: string;
+  paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
+  paymentStatus?: 'paid' | 'unpaid';
 }
 
 const formatCurrency = (amount: number) => {
@@ -81,8 +87,82 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+function PaymentDialog({ transaction, onPaymentSuccess }: { transaction: FullPurchaseTransaction, onPaymentSuccess: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank_transfer'>('cash');
+    const [description, setDescription] = useState('');
+    const { toast } = useToast();
 
-function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
+    const handleProcessPayment = async () => {
+        setIsSubmitting(true);
+        try {
+            const purchaseRef = doc(db, "purchase_transactions", transaction.id);
+            await updateDoc(purchaseRef, {
+                paymentMethod: paymentMethod,
+                paymentStatus: 'paid',
+                paymentNotes: description,
+                paidAt: new Date()
+            });
+
+            toast({ title: "Pembayaran Berhasil", description: "Status transaksi telah diperbarui menjadi lunas." });
+            onPaymentSuccess();
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Error processing payment:", error);
+            toast({ variant: 'destructive', title: "Gagal memproses pembayaran." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="default"><CreditCard className="mr-2 h-4 w-4"/>Pembayaran</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Pembayaran Utang Pembelian</DialogTitle>
+                    <DialogDescription>ID Transaksi: {transaction.id}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div className="text-center border p-4 rounded-md">
+                        <p className="text-sm text-muted-foreground">Total Tagihan</p>
+                        <p className="text-3xl font-bold">{formatCurrency(transaction.totalAmount)}</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Metode Pembayaran</Label>
+                        <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as 'cash' | 'bank_transfer')}>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="cash" id="cash"/>
+                                <Label htmlFor="cash">Cash</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="bank_transfer" id="bank_transfer"/>
+                                <Label htmlFor="bank_transfer">Transfer Bank</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="description">Keterangan (Opsional)</Label>
+                        <Textarea id="description" placeholder="Catatan untuk pembayaran ini..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleProcessPayment} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Proses Pembayaran
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+
+function PurchaseInvoiceDialog({ transactionId, onUpdate }: { transactionId: string, onUpdate: () => void }) {
     const [transaction, setTransaction] = useState<FullPurchaseTransaction | null>(null);
     const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
@@ -106,6 +186,11 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
     useEffect(() => {
         fetchTransaction();
     }, [fetchTransaction]);
+
+    const handlePaymentSuccess = () => {
+        setIsOpen(false);
+        onUpdate();
+    };
 
     const generatePdf = () => {
         if (!transaction) return;
@@ -197,10 +282,13 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
                         </div>
                     </div>
                 ) : <p>Transaksi tidak ditemukan.</p>}
-                 <DialogFooter>
+                 <DialogFooter className="justify-start gap-2">
                     <Button onClick={generatePdf} variant="outline" disabled={!transaction}>
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
+                    {transaction && transaction.paymentMethod === 'credit' && transaction.paymentStatus !== 'paid' && (
+                        <PaymentDialog transaction={transaction} onPaymentSuccess={handlePaymentSuccess} />
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -213,6 +301,30 @@ export default function AccountsPayablePage() {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const router = useRouter();
+
+  const fetchPayables = useCallback(async () => {
+      setLoading(true);
+      try {
+        const q = query(collection(db, "purchase_transactions"), where("paymentMethod", "==", "credit"), where("paymentStatus", "!=", "paid"));
+        const querySnapshot = await getDocs(q);
+        const payablesData = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
+            } as PurchaseTransaction
+        });
+        setAllPayables(payablesData);
+        const filtered = filterPayablesByDate(payablesData, dateRange.from, dateRange.to);
+        setFilteredPayables(filtered);
+      } catch (error) {
+        console.error("Error fetching accounts payable: ", error);
+      } finally {
+        setLoading(false);
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
   const filterPayablesByDate = useCallback((payables: PurchaseTransaction[], from?: Date, to?: Date) => {
     if (!from && !to) {
@@ -227,29 +339,8 @@ export default function AccountsPayablePage() {
   }, []);
 
   useEffect(() => {
-    const fetchPayables = async () => {
-      setLoading(true);
-      try {
-        const q = query(collection(db, "purchase_transactions"), where("paymentMethod", "==", "credit"));
-        const querySnapshot = await getDocs(q);
-        const payablesData = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
-            } as PurchaseTransaction
-        });
-        setAllPayables(payablesData);
-        setFilteredPayables(payablesData);
-      } catch (error) {
-        console.error("Error fetching accounts payable: ", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPayables();
-  }, []);
+  }, [fetchPayables]);
 
   const handleFilter = () => {
     const filtered = filterPayablesByDate(allPayables, dateRange.from, dateRange.to);
@@ -336,7 +427,7 @@ export default function AccountsPayablePage() {
                   filteredPayables.map((payable) => (
                     <TableRow key={payable.id}>
                       <TableCell>
-                        <PurchaseInvoiceDialog transactionId={payable.id} />
+                        <PurchaseInvoiceDialog transactionId={payable.id} onUpdate={fetchPayables} />
                       </TableCell>
                       <TableCell>{format(new Date(payable.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                       <TableCell>{payable.supplierName || 'N/A'}</TableCell>
