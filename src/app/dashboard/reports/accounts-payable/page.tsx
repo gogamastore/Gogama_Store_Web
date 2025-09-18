@@ -305,7 +305,7 @@ export default function AccountsPayablePage() {
   const fetchPayables = useCallback(async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "purchase_transactions"), where("paymentMethod", "==", "credit"), where("paymentStatus", "!=", "paid"));
+        const q = query(collection(db, "purchase_transactions"), where("paymentMethod", "==", "credit"));
         const querySnapshot = await getDocs(q);
         const payablesData = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -314,7 +314,7 @@ export default function AccountsPayablePage() {
                 ...data,
                 date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
             } as PurchaseTransaction
-        });
+        }).filter(p => p.paymentStatus !== 'paid'); // Filter locally for flexibility
         setAllPayables(payablesData);
         const filtered = filterPayablesByDate(payablesData, dateRange.from, dateRange.to);
         setFilteredPayables(filtered);
