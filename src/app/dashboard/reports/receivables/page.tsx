@@ -272,7 +272,7 @@ export default function ReceivablesReportPage() {
     const fetchReceivables = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "orders"), where("paymentStatus", "==", "Unpaid"), where("status", "in", ["Processing", "Shipped", "Delivered"]));
+        const q = query(collection(db, "orders"), where("paymentStatus", "==", "Unpaid"), where("status", "in", ["Shipped", "Delivered"]));
         const querySnapshot = await getDocs(q);
         const receivableOrders = querySnapshot.docs.map(doc => {
             const data = doc.data();
