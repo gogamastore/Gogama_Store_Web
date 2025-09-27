@@ -204,37 +204,65 @@ export default function CheckoutPage() {
 
     try {
       const orderRef = doc(collection(db, "orders")); // Generate a new order ID first
-      
-      const orderData = {
+      const nowISO = new Date().toISOString();
+      const serverTime = serverTimestamp();
+
+      const orderData: any = {
+        // Customer Info
         customer: customerDetails.name,
-        customerDetails: customerDetails,
+        customerDetails: {
+            name: customerDetails.name,
+            address: customerDetails.address,
+            whatsapp: customerDetails.whatsapp,
+        },
         customerId: user?.uid || 'guest',
+
+        // Order Details
         products: cart.map(item => ({
           productId: item.id,
           name: item.name,
-          price: item.finalPrice,
+          price: item.finalPrice, // Storing as number
           quantity: item.quantity,
           image: item.image,
           sku: item.sku,
         })),
         productIds: cart.map(item => item.id),
-        total: formatCurrency(grandTotal),
-        shippingFee: shippingFee,
-        shippingMethod: shippingMethod,
-        subtotal: totalAmount,
-        date: serverTimestamp(),
-        status: 'Pending' as const,
-        paymentStatus: 'Unpaid' as const, // Always unpaid initially
+
+        // Financials
+        subtotal: totalAmount, // Storing as number
+        shippingFee: shippingFee, // Storing as number
+        total: grandTotal, // Storing as number
+        
+        // Shipping and Status
+        shippingMethod: shippingMethod === 'expedition' ? 'Pengiriman oleh Kurir' : 'Jemput Sendiri',
+        status: 'Pending',
+        
+        // Payment
         paymentMethod: paymentMethod,
+        paymentStatus: 'Unpaid',
         paymentProofUrl: '',
+        paymentProofFileName: '',
+        paymentProofId: '',
+        paymentProofUploaded: false,
+        
+        // Timestamps & Flags
+        date: serverTime,
+        createdAt: serverTime,
+        updatedAt: serverTime,
+        created_at: nowISO,
+        updated_at: nowISO,
+        stockUpdated: true, // Assuming stock is updated on order creation
+        stockUpdateTimestamp: nowISO,
       };
       
-      // For bank transfers, we might upload proof, but status remains 'Unpaid' until admin confirms
+      // Handle payment proof upload for bank transfer
       if (paymentMethod === 'bank_transfer' && paymentProof) {
           const storage = getStorage();
           const storageRef = ref(storage, `payment_proofs/${orderRef.id}_${paymentProof.name}`);
           await uploadBytes(storageRef, paymentProof);
           orderData.paymentProofUrl = await getDownloadURL(storageRef);
+          orderData.paymentProofUploaded = true;
+          orderData.paymentProofFileName = paymentProof.name;
       }
         
       const batch = writeBatch(db);
