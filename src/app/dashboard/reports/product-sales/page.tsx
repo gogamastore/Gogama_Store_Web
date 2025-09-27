@@ -80,12 +80,13 @@ interface ProductSalesReport {
     relatedOrders: { orderId: string, customer: string, date: any, quantity: number }[];
 }
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number | string) => {
+  const num = typeof amount === 'string' ? parseFloat(String(amount).replace(/[^0-9]/g, '')) : amount;
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
-  }).format(amount);
+  }).format(num);
 };
 
 function OrderDetailDialog({ orderId }: { orderId: string }) {
@@ -261,7 +262,6 @@ export default function ProductSalesReportPage() {
 
         const ordersQuery = query(
             collection(db, "orders"),
-            where("status", "in", ["Shipped", "Delivered"]),
             where("date", ">=", startOfDay(from)),
             where("date", "<=", endOfDay(to))
         );
@@ -271,31 +271,36 @@ export default function ProductSalesReportPage() {
 
         ordersSnapshot.forEach(orderDoc => {
             const order = orderDoc.data() as FullOrder;
-            order.products?.forEach(productItem => {
-                if (!salesMap.has(productItem.productId)) {
-                    const productDetails = productsMap.get(productItem.productId);
-                    if (productDetails) {
-                         salesMap.set(productItem.productId, {
-                            id: productItem.productId,
-                            name: productDetails.name,
-                            sku: productDetails.sku,
-                            image: productDetails.image || '',
-                            totalSold: 0,
-                            relatedOrders: []
+            const normalizedStatus = (order.status || '').toLowerCase();
+
+            // Only count sales from non-cancelled orders
+            if (normalizedStatus !== 'cancelled') {
+                order.products?.forEach(productItem => {
+                    if (!salesMap.has(productItem.productId)) {
+                        const productDetails = productsMap.get(productItem.productId);
+                        if (productDetails) {
+                             salesMap.set(productItem.productId, {
+                                id: productItem.productId,
+                                name: productDetails.name,
+                                sku: productDetails.sku,
+                                image: productDetails.image || '',
+                                totalSold: 0,
+                                relatedOrders: []
+                            });
+                        }
+                    }
+                    const reportItem = salesMap.get(productItem.productId);
+                    if(reportItem) {
+                        reportItem.totalSold += productItem.quantity;
+                        reportItem.relatedOrders.push({
+                            orderId: orderDoc.id,
+                            customer: order.customer,
+                            date: order.date,
+                            quantity: productItem.quantity,
                         });
                     }
-                }
-                const reportItem = salesMap.get(productItem.productId);
-                if(reportItem) {
-                    reportItem.totalSold += productItem.quantity;
-                    reportItem.relatedOrders.push({
-                        orderId: orderDoc.id,
-                        customer: order.customer,
-                        date: order.date,
-                        quantity: productItem.quantity,
-                    });
-                }
-            });
+                });
+            }
         });
 
         const sortedReport = Array.from(salesMap.values()).sort((a, b) => b.totalSold - a.totalSold);
