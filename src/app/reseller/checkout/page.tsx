@@ -221,7 +221,7 @@ export default function CheckoutPage() {
         products: cart.map(item => ({
           productId: item.id,
           name: item.name,
-          price: item.finalPrice, // Storing as number
+          price: item.finalPrice, // Using finalPrice which includes promo
           quantity: item.quantity,
           image: item.image,
           sku: item.sku,
@@ -229,9 +229,9 @@ export default function CheckoutPage() {
         productIds: cart.map(item => item.id),
 
         // Financials
-        subtotal: totalAmount, // Storing as number
-        shippingFee: shippingFee, // Storing as number
-        total: grandTotal, // Storing as number
+        subtotal: totalAmount,
+        shippingFee: shippingFee,
+        total: grandTotal,
         
         // Shipping and Status
         shippingMethod: shippingMethod === 'expedition' ? 'Pengiriman oleh Kurir' : 'Jemput Sendiri',
@@ -251,7 +251,7 @@ export default function CheckoutPage() {
         updatedAt: serverTime,
         created_at: nowISO,
         updated_at: nowISO,
-        stockUpdated: true, // Assuming stock is updated on order creation
+        stockUpdated: true, 
         stockUpdateTimestamp: nowISO,
       };
       

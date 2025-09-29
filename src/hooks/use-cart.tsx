@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from './use-toast';
 
 interface Product {
@@ -37,8 +37,16 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const parseCurrency = (value: string): number => {
+const parseCurrency = (value: string | number): number => {
+    if (typeof value === 'number') return value;
     return Number(String(value).replace(/[^0-9]/g, ''));
+}
+
+interface Promotion {
+    productId: string;
+    discountPrice: number;
+    startDate: Timestamp;
+    endDate: Timestamp;
 }
 
 
@@ -55,32 +63,55 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const cartRef = collection(db, 'user', user.uid, 'cart');
       
       const unsubscribe = onSnapshot(cartRef, async (snapshot) => {
-        const productPromises = snapshot.docs.map(async (cartDoc) => {
-          const cartData = cartDoc.data();
-          const productRef = doc(db, 'products', cartDoc.id);
-          const productSnap = await getDoc(productRef);
+        try {
+            // Fetch active promotions once
+            const now = new Date();
+            const promoQuery = query(collection(db, "promotions"), where("endDate", ">", now));
+            const promoSnapshot = await getDocs(promoQuery);
+            const activePromos = new Map<string, number>();
+            promoSnapshot.forEach(doc => {
+                const data = doc.data() as Promotion;
+                if (data.startDate.toDate() <= now) {
+                    activePromos.set(data.productId, data.discountPrice);
+                }
+            });
 
-          if (productSnap.exists()) {
-            const productData = productSnap.data() as Omit<Product, 'id'>;
-            
-            // TODO: promo logic
-            const finalPrice = parseCurrency(productData.price);
+            const productPromises = snapshot.docs.map(async (cartDoc) => {
+                const cartData = cartDoc.data();
+                const productRef = doc(db, 'products', cartDoc.id);
+                const productSnap = await getDoc(productRef);
 
-            return {
-              ...productData,
-              id: cartDoc.id,
-              quantity: cartData.quantity,
-              finalPrice: finalPrice
-            } as CartItem;
-          }
-          return null;
-        });
+                if (productSnap.exists()) {
+                    const productData = productSnap.data() as Omit<Product, 'id'>;
+                    
+                    let finalPrice = parseCurrency(productData.price);
+                    if (activePromos.has(cartDoc.id)) {
+                        finalPrice = activePromos.get(cartDoc.id)!;
+                    }
 
-        const cartItems = (await Promise.all(productPromises)).filter(item => item !== null) as CartItem[];
-        setCart(cartItems);
-        setLoading(false);
+                    return {
+                    ...productData,
+                    id: cartDoc.id,
+                    quantity: cartData.quantity,
+                    finalPrice: finalPrice,
+                    price: productData.price, // Keep original price for reference if needed
+                    } as CartItem;
+                }
+                return null;
+            });
+
+            const cartItems = (await Promise.all(productPromises)).filter(item => item !== null) as CartItem[];
+            setCart(cartItems);
+
+        } catch (error) {
+             console.error("Error processing cart and promotions:", error);
+             toast({ variant: "destructive", title: "Gagal memuat keranjang dengan promo" });
+        } finally {
+            setLoading(false);
+        }
       }, (error) => {
         console.error("Error listening to cart changes:", error);
+        toast({ variant: "destructive", title: "Error pada keranjang" });
         setLoading(false);
       });
 
@@ -90,7 +121,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCart([]);
       setLoading(false);
     }
-  }, [user]);
+  }, [user, toast]);
 
   const addToCart = async (product: Product, quantity: number = 1) => {
     if (!user) {
@@ -137,6 +168,18 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     const cartRef = doc(db, 'user', user.uid, 'cart', productId);
     try {
+        // Here we need to check the stock limit before updating
+        const productRef = doc(db, 'products', productId);
+        const productSnap = await getDoc(productRef);
+        if (productSnap.exists()) {
+            const productStock = productSnap.data().stock || 0;
+            if (quantity > productStock) {
+                toast({ variant: 'destructive', title: 'Stok tidak mencukupi', description: `Sisa stok: ${productStock}` });
+                // Revert to max stock if user tries to exceed
+                await setDoc(cartRef, { quantity: productStock }, { merge: true });
+                return;
+            }
+        }
         await setDoc(cartRef, { quantity: quantity }, { merge: true });
     } catch (error) {
         console.error("Error updating quantity:", error);
@@ -191,5 +234,3 @@ export const useCart = (): CartContextType => {
   }
   return context;
 };
-
-    
