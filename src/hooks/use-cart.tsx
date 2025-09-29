@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, query, where, Timestamp, setDoc } from 'firebase/firestore';
 import { useToast } from './use-toast';
 
 interface Product {
