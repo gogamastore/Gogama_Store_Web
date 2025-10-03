@@ -70,7 +70,7 @@ interface Product {
   name: string;
   sku: string;
   category: string;
-  price: string;
+  price: number; // Normalized to number
   purchasePrice?: number;
   stock: number;
   image: string;
@@ -85,6 +85,24 @@ interface PurchaseHistoryItem {
     purchasePrice: number;
     supplierName: string;
 }
+
+const parseCurrency = (value: string | number): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        const num = Number(value.replace(/[^0-9]/g, ''));
+        return isNaN(num) ? 0 : num;
+    }
+    return 0;
+}
+
+const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+    }).format(amount);
+};
+
 
 function AddCategoryDialog({ onCategoryAdded }: { onCategoryAdded: (newCategory: ProductCategory) => void }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -151,7 +169,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
         name: product?.name || "",
         sku: product?.sku || "",
         purchasePrice: product?.purchasePrice || 0,
-        price: product ? parseFloat(product.price.replace(/[^0-9]/g, '')) : 0,
+        price: product ? parseCurrency(product.price) : 0,
         stock: product?.stock || 0,
         category: product?.category || "",
         description: product?.description || "",
@@ -522,14 +540,6 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
   );
 }
 
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
 function ProductLogDialog({ product }: { product: Product }) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -629,7 +639,14 @@ export default function ProductsPage() {
     setLoading(true);
     try {
         const querySnapshot = await getDocs(collection(db, "products"));
-        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const productsData = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                price: parseCurrency(data.price), // Normalize price here
+            } as Product;
+        });
         setProducts(productsData);
     } catch (error) {
         console.error("Error fetching products:", error);
@@ -886,8 +903,8 @@ export default function ProductsPage() {
                                             {product.stock > 0 ? `${product.stock}` : 'Habis'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                    <TableCell className="text-right">{product.price}</TableCell>
+                                    <TableCell className="text-right hidden sm:table-cell">{formatCurrency(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
                                     <TableCell className="text-right">
                                         <Dialog>
                                             <DialogTrigger asChild>
@@ -917,11 +934,11 @@ export default function ProductsPage() {
                                                     </div>
                                                     <div className="flex justify-between">
                                                         <span className="text-muted-foreground">Harga Beli</span>
-                                                        <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
+                                                        <span className="font-medium">{formatCurrency(product.purchasePrice || 0)}</span>
                                                     </div>
                                                         <div className="flex justify-between">
                                                         <span className="text-muted-foreground">Harga Jual</span>
-                                                        <span className="font-medium">{product.price}</span>
+                                                        <span className="font-medium">{formatCurrency(product.price)}</span>
                                                     </div>
                                                         <div className="space-y-1">
                                                         <span className="text-muted-foreground">Deskripsi</span>
