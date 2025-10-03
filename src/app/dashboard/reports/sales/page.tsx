@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -56,6 +57,7 @@ import "jspdf-autotable";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import type { DateRange } from "react-day-picker";
 
 
 declare module 'jspdf' {
@@ -252,7 +254,8 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             productId: product.id,
             name: product.name,
             quantity: quantity,
-            price: parseFloat(product.price.replace(/[^0-9]/g, ''))
+            price: parseFloat(product.price.replace(/[^0-9]/g, '')),
+            image: product.image
         };
         setEditableProducts(prev => [...prev, newProduct]);
     };
@@ -604,7 +607,7 @@ export default function SalesReportPage() {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
   });
@@ -639,7 +642,8 @@ export default function SalesReportPage() {
               const productInfo = productMap.get(p.productId);
               return {
                   ...p,
-                  purchasePrice: productInfo?.purchasePrice || 0
+                  purchasePrice: productInfo?.purchasePrice || 0,
+                  image: p.image || productInfo?.image || ''
               }
           });
 
@@ -683,7 +687,7 @@ export default function SalesReportPage() {
   }, [fetchOrders]);
 
   const handleFilter = () => {
-    const { from, to } = dateRange;
+    const { from, to } = dateRange || {};
     const filtered = filterOrdersByDate(allOrders, from, to);
     setFilteredOrders(filtered);
   };
