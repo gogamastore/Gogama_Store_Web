@@ -10,7 +10,8 @@ import {
   doc,
   getDocs,
   query,
-  where
+  where,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -196,27 +197,33 @@ export default function TrendingProductsPage() {
     setLoading(true);
     try {
         const trendingSnapshot = await getDocs(collection(db, 'trending_products'));
-        const productIds = trendingSnapshot.docs.map(doc => ({trendingId: doc.id, productId: doc.data().productId}));
-        
-        if (productIds.length === 0) {
+        const trendingRefs = trendingSnapshot.docs.map(doc => ({
+            trendingId: doc.id,
+            productId: doc.data().productId
+        }));
+
+        if (trendingRefs.length === 0) {
             setTrendingProducts([]);
             setLoading(false);
             return;
         }
 
-        const productsSnapshot = await getDocs(query(collection(db, 'products'), where('__name__', 'in', productIds.map(p => p.productId))));
-
-        const productsData = new Map<string, Product>();
-        productsSnapshot.forEach(doc => {
-            productsData.set(doc.id, { id: doc.id, ...doc.data() } as Product);
+        // Fetch each product document individually to avoid 'in' query limit.
+        const productPromises = trendingRefs.map(async (ref) => {
+            const productDoc = await getDoc(doc(db, "products", ref.productId));
+            if (productDoc.exists()) {
+                return {
+                    ...(productDoc.data() as Product),
+                    id: productDoc.id,
+                    trendingId: ref.trendingId,
+                };
+            }
+            return null;
         });
 
-        const trendingData = productIds.map(tp => {
-            const product = productsData.get(tp.productId);
-            return product ? { ...product, trendingId: tp.trendingId } : null;
-        }).filter(p => p !== null) as TrendingProduct[];
+        const resolvedProducts = (await Promise.all(productPromises)).filter(p => p !== null) as TrendingProduct[];
         
-        setTrendingProducts(trendingData);
+        setTrendingProducts(resolvedProducts);
 
     } catch (error) {
       console.error('Error fetching trending products: ', error);
