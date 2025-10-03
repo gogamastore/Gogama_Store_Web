@@ -614,6 +614,8 @@ export default function StockFlowReportPage() {
     try {
         const querySnapshot = await getDocs(collection(db, "products"));
         const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        // Sort by name alphabetically (A-Z)
+        productsData.sort((a, b) => a.name.localeCompare(b.name));
         setAllProducts(productsData);
         setFilteredProducts(productsData);
     } catch (error) {
