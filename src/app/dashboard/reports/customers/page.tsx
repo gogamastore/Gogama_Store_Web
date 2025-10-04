@@ -63,8 +63,8 @@ interface FullOrder {
   id: string;
   customer: string;
   customerDetails?: { name: string; address: string; whatsapp: string };
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
-  paymentStatus: 'Paid' | 'Unpaid';
+  status: 'Delivered' | 'delivered' | 'Shipped' | 'shipped' | 'Processing' | 'processing' | 'Pending' | 'pending' | 'cancelled' | 'Cancelled';
+  paymentStatus: 'Paid' | 'paid' | 'unpaid' |'Unpaid';
   total: number;
   subtotal: number;
   shippingFee: number;
@@ -76,8 +76,8 @@ interface Order {
   id: string;
   customer: string;
   customerId: string;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
-  paymentStatus: 'Paid' | 'Unpaid';
+  status: 'Delivered' | 'delivered' | 'Shipped' | 'shipped' | 'Processing' | 'processing' | 'Pending' | 'pending' | 'cancelled' | 'Cancelled';
+  paymentStatus: 'Paid' | 'paid' | 'unpaid' |'Unpaid';
   total: number;
   date: string;
 }

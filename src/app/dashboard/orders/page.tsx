@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -547,15 +548,17 @@ export default function OrdersPage() {
             });
         }
     }
+    
+    const sortedProducts = [...order.products].sort((a, b) => a.name.localeCompare(b.name));
 
     const tableRows = type === 'invoice'
-        ? order.products.map(p => [
+        ? sortedProducts.map(p => [
             p.name,
             p.quantity,
             formatCurrency(p.price),
             formatCurrency(p.price * p.quantity)
         ])
-        : order.products.map((p, index) => [
+        : sortedProducts.map((p, index) => [
             index + 1,
             p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
             p.name,
@@ -641,15 +644,17 @@ export default function OrdersPage() {
           const tableColumn = type === 'invoice' 
               ? ["Produk", "Jumlah", "Harga", "Subtotal"] 
               : ["No.", "Kode SKU", "Nama Produk", "Jumlah"];
+              
+          const sortedProducts = [...order.products].sort((a, b) => a.name.localeCompare(b.name));
           
           const tableRows = type === 'invoice'
-              ? order.products.map(p => [
+              ? sortedProducts.map(p => [
                   p.name,
                   p.quantity,
                   formatCurrency(p.price),
                   formatCurrency(p.price * p.quantity)
               ])
-              : order.products.map((p, index) => [
+              : sortedProducts.map((p, index) => [
                   index + 1,
                   p.sku || productDetailsMap.get(p.productId)?.sku || 'N/A',
                   p.name,
@@ -1038,7 +1043,7 @@ export default function OrdersPage() {
                 </div>
             )}
         </div>
-    )
+    );
   };
 
 
@@ -1133,5 +1138,7 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     
