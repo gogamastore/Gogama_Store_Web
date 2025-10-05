@@ -223,7 +223,7 @@ export default function CheckoutPage() {
           name: item.name,
           price: item.finalPrice, // Using finalPrice which includes promo
           quantity: item.quantity,
-          image: item.image,
+          imageUrl: item.image,
           sku: item.sku,
         })),
         productIds: cart.map(item => item.id),
@@ -530,3 +530,5 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
+    
