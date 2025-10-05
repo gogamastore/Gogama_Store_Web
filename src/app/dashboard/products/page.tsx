@@ -164,6 +164,8 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(product?.image || null);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
+    const [categorySearch, setCategorySearch] = useState("");
+
 
     const [formData, setFormData] = useState({
         name: product?.name || "",
@@ -179,13 +181,22 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
     useEffect(() => {
         const fetchCategories = async () => {
             const snapshot = await getDocs(collection(db, "product_categories"));
-            setCategories(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
+            const fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+            // Sort categories alphabetically by name
+            fetchedCategories.sort((a, b) => a.name.localeCompare(b.name));
+            setCategories(fetchedCategories);
         };
         fetchCategories();
     }, []);
+    
+    const filteredCategories = useMemo(() => {
+        return categories.filter(cat => cat.name.toLowerCase().includes(categorySearch.toLowerCase()));
+    }, [categories, categorySearch]);
+
 
     const handleCategoryAdded = (newCategory: ProductCategory) => {
-        setCategories(prev => [...prev, newCategory]);
+        const updatedCategories = [...categories, newCategory].sort((a, b) => a.name.localeCompare(b.name));
+        setCategories(updatedCategories);
         setFormData(prev => ({...prev, category: newCategory.name }));
     };
 
@@ -299,7 +310,15 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                             <SelectValue placeholder="Pilih Kategori Produk" />
                         </SelectTrigger>
                         <SelectContent>
-                            {categories.map(cat => (
+                             <div className="p-2">
+                                <Input 
+                                    placeholder="Cari kategori..." 
+                                    className="w-full h-8"
+                                    value={categorySearch}
+                                    onChange={(e) => setCategorySearch(e.target.value)}
+                                />
+                            </div>
+                            {filteredCategories.map(cat => (
                                 <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                             ))}
                             <Separator className="my-2"/>
