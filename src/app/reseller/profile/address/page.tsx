@@ -10,6 +10,9 @@ import {
   getDocs,
   deleteDoc,
   doc,
+  serverTimestamp,
+  query,
+  orderBy
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +26,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, ArrowLeft, Home } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, ArrowLeft, Home, User, Phone } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -35,13 +38,19 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 interface UserAddress {
     id: string;
     label: string;
+    name: string;
     address: string;
-    whatsapp: string;
+    city: string;
+    province: string;
+    postalCode: string;
+    phone: string; // Changed from whatsapp
+    isDefault: boolean;
 }
 
 export default function AddressPage() {
@@ -53,12 +62,21 @@ export default function AddressPage() {
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [isAddressLoading, setIsAddressLoading] = useState(true);
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
-  const [newAddress, setNewAddress] = useState({ label: '', address: '', whatsapp: '' });
+  const [newAddress, setNewAddress] = useState({
+      label: '',
+      name: '',
+      address: '',
+      phone: '',
+      city: '',
+      province: '',
+      postalCode: '',
+      isDefault: false
+  });
 
   const fetchAddresses = async () => {
     if (!user) return;
     setIsAddressLoading(true);
-    const addressesQuery = collection(db, `user/${user.uid}/addresses`);
+    const addressesQuery = query(collection(db, `user/${user.uid}/addresses`), orderBy("created_at", "desc"));
     const querySnapshot = await getDocs(addressesQuery);
     const userAddresses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserAddress));
     setAddresses(userAddresses);
@@ -77,19 +95,27 @@ export default function AddressPage() {
     const { id, value } = e.target;
     setNewAddress(prev => ({ ...prev, [id]: value }));
   };
+  
+  const handleCheckboxChange = (checked: boolean) => {
+    setNewAddress(prev => ({ ...prev, isDefault: checked }));
+  }
 
   const handleSaveAddress = async () => {
       if (!user) return;
-      if (!newAddress.label || !newAddress.address || !newAddress.whatsapp) {
-          toast({ variant: 'destructive', title: 'Data alamat tidak lengkap' });
+      if (!newAddress.label || !newAddress.name || !newAddress.address || !newAddress.phone || !newAddress.city) {
+          toast({ variant: 'destructive', title: 'Data alamat tidak lengkap', description: 'Harap isi semua field yang wajib.' });
           return;
       }
       setIsSubmitting(true);
       try {
-          await addDoc(collection(db, `user/${user.uid}/addresses`), newAddress);
+          await addDoc(collection(db, `user/${user.uid}/addresses`), {
+              ...newAddress,
+              created_at: serverTimestamp(),
+              updated_at: serverTimestamp()
+          });
           toast({ title: 'Alamat baru berhasil disimpan' });
           setIsAddressDialogOpen(false);
-          setNewAddress({ label: '', address: '', whatsapp: '' });
+          setNewAddress({ label: '', name: '', address: '', phone: '', city: '', province: '', postalCode: '', isDefault: false });
           fetchAddresses();
       } catch (error) {
           console.error(error);
@@ -147,18 +173,40 @@ export default function AddressPage() {
                         <DialogTitle>Tambah Alamat Baru</DialogTitle>
                         <DialogDescription>Simpan alamat untuk mempermudah proses checkout nanti.</DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+                    <div className="space-y-3 py-2 max-h-[70vh] overflow-y-auto px-2">
                         <div className="space-y-1">
                             <Label htmlFor="label">Label Alamat</Label>
                             <Input id="label" value={newAddress.label} onChange={handleAddressDialogInputChange} placeholder="Contoh: Rumah, Kantor, Toko"/>
                         </div>
-                            <div className="space-y-1">
-                            <Label htmlFor="address">Alamat Lengkap</Label>
-                            <Textarea id="address" value={newAddress.address} onChange={handleAddressDialogInputChange} placeholder="Jalan, No. Rumah, RT/RW, Kelurahan, Kecamatan, Kota, Kode Pos"/>
+                        <div className="space-y-1">
+                            <Label htmlFor="name">Nama Penerima</Label>
+                            <Input id="name" value={newAddress.name} onChange={handleAddressDialogInputChange} placeholder="Nama lengkap penerima"/>
                         </div>
+                         <div className="space-y-1">
+                            <Label htmlFor="phone">Nomor Telepon Penerima</Label>
+                            <Input id="phone" value={newAddress.phone} onChange={handleAddressDialogInputChange} placeholder="Contoh: 6281234567890"/>
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="address">Alamat Lengkap</Label>
+                            <Textarea id="address" value={newAddress.address} onChange={handleAddressDialogInputChange} placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan"/>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                            <Label htmlFor="whatsapp">Nomor WhatsApp Penerima</Label>
-                            <Input id="whatsapp" value={newAddress.whatsapp} onChange={handleAddressDialogInputChange} placeholder="Nomor telepon di alamat ini"/>
+                                <Label htmlFor="city">Kota/Kabupaten</Label>
+                                <Input id="city" value={newAddress.city} onChange={handleAddressDialogInputChange} placeholder="Contoh: Makassar"/>
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="province">Provinsi</Label>
+                                <Input id="province" value={newAddress.province} onChange={handleAddressDialogInputChange} placeholder="Contoh: Sulawesi Selatan"/>
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="postalCode">Kode Pos</Label>
+                            <Input id="postalCode" value={newAddress.postalCode} onChange={handleAddressDialogInputChange} placeholder="Contoh: 90234"/>
+                        </div>
+                        <div className="flex items-center space-x-2 pt-2">
+                            <Checkbox id="isDefault" checked={newAddress.isDefault} onCheckedChange={handleCheckboxChange} />
+                            <Label htmlFor="isDefault">Jadikan alamat utama</Label>
                         </div>
                     </div>
                     <DialogFooter>
@@ -178,12 +226,18 @@ export default function AddressPage() {
                 <div className="space-y-4">
                     {addresses.map(addr => (
                          <div key={addr.id} className="flex items-start justify-between rounded-lg border p-4">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-4">
                                <Home className="h-5 w-5 mt-1 text-muted-foreground"/>
                                <div>
-                                    <p className="font-bold">{addr.label}</p>
-                                    <p className="text-sm text-muted-foreground">{addr.address}</p>
-                                    <p className="text-sm text-muted-foreground">Telp: {addr.whatsapp}</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="font-bold">{addr.label}</p>
+                                        {addr.isDefault && <div className="text-xs font-medium text-primary-foreground bg-primary rounded-full px-2 py-0.5">Utama</div>}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground space-y-1">
+                                        <p className="flex items-center gap-2"><User className="h-4 w-4"/> {addr.name}</p>
+                                        <p className="flex items-center gap-2"><Phone className="h-4 w-4"/> {addr.phone}</p>
+                                        <p>{addr.address}, {addr.city}, {addr.province} {addr.postalCode}</p>
+                                    </div>
                                 </div>
                             </div>
                              <AlertDialog>
