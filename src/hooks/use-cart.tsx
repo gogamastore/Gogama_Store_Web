@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, query, where, Timestamp, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, query, where, Timestamp, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from './use-toast';
 
 interface Product {
@@ -140,7 +140,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return;
         }
 
-        await setDoc(cartRef, { quantity: newQuantity }, { merge: true });
+        const finalPrice = (product.isPromo && product.discountPrice)
+            ? parseCurrency(product.discountPrice)
+            : parseCurrency(product.price);
+
+        const dataToSave = {
+            product_id: product.id,
+            nama: product.name,
+            harga: finalPrice,
+            gambar: product.image,
+            quantity: newQuantity,
+            updated_at: serverTimestamp()
+        };
+
+        await setDoc(cartRef, dataToSave, { merge: true });
         toast({ title: 'Produk ditambahkan ke keranjang' });
 
     } catch (error) {
@@ -176,11 +189,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (quantity > productStock) {
                 toast({ variant: 'destructive', title: 'Stok tidak mencukupi', description: `Sisa stok: ${productStock}` });
                 // Revert to max stock if user tries to exceed
-                await setDoc(cartRef, { quantity: productStock }, { merge: true });
+                await setDoc(cartRef, { quantity: productStock, updated_at: serverTimestamp() }, { merge: true });
                 return;
             }
         }
-        await setDoc(cartRef, { quantity: quantity }, { merge: true });
+        await setDoc(cartRef, { quantity: quantity, updated_at: serverTimestamp() }, { merge: true });
     } catch (error) {
         console.error("Error updating quantity:", error);
         toast({ variant: 'destructive', title: 'Gagal memperbarui jumlah' });
