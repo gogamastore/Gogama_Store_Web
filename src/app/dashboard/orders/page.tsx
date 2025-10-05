@@ -58,7 +58,7 @@ interface Product {
     id: string;
     name: string;
     sku: string;
-    price: string;
+    price: string | number; // Allow both string and number
     stock: number;
     image: string;
     'data-ai-hint'?: string;
@@ -108,6 +108,15 @@ const formatCurrency = (amount: number | string) => {
         minimumFractionDigits: 0,
     }).format(numericAmount);
 };
+
+const parseCurrency = (value: string | number): number => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+        const num = Number(value.replace(/[^0-9]/g, ''));
+        return isNaN(num) ? 0 : num;
+    }
+    return 0;
+}
 
 
 function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentProducts: OrderProduct[], onAddProduct: (product: Product, quantity: number) => void }) {
@@ -186,7 +195,7 @@ function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentPro
                                 <TableRow key={p.id}>
                                     <TableCell className="font-medium">{p.name}</TableCell>
                                     <TableCell>{p.stock}</TableCell>
-                                    <TableCell>{p.price}</TableCell>
+                                    <TableCell>{formatCurrency(p.price)}</TableCell>
                                     <TableCell>
                                         <Input type="number" defaultValue={1} min={1} max={p.stock} onChange={(e) => setQuantity(Number(e.target.value))} />
                                     </TableCell>
@@ -235,7 +244,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             productId: product.id,
             name: product.name,
             quantity: quantity,
-            price: parseFloat(product.price.replace(/[^0-9]/g, '')),
+            price: parseCurrency(product.price),
             image: product.image,
             sku: product.sku
         };
@@ -896,8 +905,8 @@ export default function OrdersPage() {
     const isAllInTabSelected = orders.length > 0 && selectedInTabCount === orders.length;
 
     return (
-        <>
-            <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
+        <div className="space-y-4">
+             <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
                 <Checkbox
                     id={`select-all-${tabName}`}
                     checked={isAllInTabSelected}
@@ -1047,7 +1056,7 @@ export default function OrdersPage() {
                     </div>
                 )}
             </div>
-        </>
+        </div>
     );
   };
 
@@ -1147,4 +1156,3 @@ export default function OrdersPage() {
     
 
     
-
