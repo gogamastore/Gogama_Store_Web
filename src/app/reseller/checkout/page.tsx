@@ -73,8 +73,13 @@ interface BankAccount {
 interface UserAddress {
     id: string;
     label: string;
+    name: string;
     address: string;
-    whatsapp: string;
+    city: string;
+    province: string;
+    postalCode: string;
+    phone: string;
+    isDefault: boolean;
 }
 
 const INITIAL_SHIPPING_FEE = 15000;
@@ -108,20 +113,30 @@ export default function CheckoutPage() {
         setIsAddressLoading(true);
         const userDocRef = doc(db, "user", user.uid);
         const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setCustomerDetails(prev => ({
-            ...prev,
-            name: userData.name || user.displayName || "",
-            whatsapp: userData.whatsapp || "",
-            address: userData.address || ""
-          }));
-        }
-
+        
         const addressesQuery = query(collection(db, `user/${user.uid}/addresses`));
         const addressesSnapshot = await getDocs(addressesQuery);
         const addresses = addressesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserAddress));
         setUserAddresses(addresses);
+        
+        const defaultAddress = addresses.find(addr => addr.isDefault) || addresses[0];
+
+        if (defaultAddress) {
+            setCustomerDetails({
+                name: defaultAddress.name,
+                whatsapp: defaultAddress.phone,
+                address: `${defaultAddress.address}, ${defaultAddress.city}, ${defaultAddress.province} ${defaultAddress.postalCode}`
+            });
+        } else if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setCustomerDetails(prev => ({
+            ...prev,
+            name: userData.name || user.displayName || "",
+            whatsapp: userData.phone || userData.whatsapp || "",
+            address: userData.address || ""
+          }));
+        }
+
         setIsAddressLoading(false);
       }
       fetchUserData();
@@ -175,11 +190,11 @@ export default function CheckoutPage() {
   const handleAddressSelect = (addressId: string) => {
       const selected = userAddresses.find(addr => addr.id === addressId);
       if (selected) {
-          setCustomerDetails(prev => ({
-              ...prev,
-              address: selected.address || "",
-              whatsapp: selected.whatsapp || "",
-          }));
+          setCustomerDetails({
+              name: selected.name,
+              whatsapp: selected.phone,
+              address: `${selected.address}, ${selected.city}, ${selected.province} ${selected.postalCode}`,
+          });
       }
   }
 
@@ -204,7 +219,7 @@ export default function CheckoutPage() {
 
     try {
       const orderRef = doc(collection(db, "orders")); // Generate a new order ID first
-      const nowISO = new Date().toISOString();
+      const now = new Date();
       const serverTime = serverTimestamp();
 
       const orderData: any = {
@@ -234,7 +249,7 @@ export default function CheckoutPage() {
         total: grandTotal,
         
         // Shipping and Status
-        shippingMethod: shippingMethod === 'expedition' ? 'Pengiriman oleh Kurir' : 'Jemput Sendiri',
+        shippingMethod: shippingMethod === 'pickup' ? 'Jemput Sendiri' : 'Pengiriman oleh Kurir',
         status: 'Pending',
         
         // Payment
@@ -249,10 +264,10 @@ export default function CheckoutPage() {
         date: serverTime,
         createdAt: serverTime,
         updatedAt: serverTime,
-        created_at: nowISO,
-        updated_at: nowISO,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
         stockUpdated: true, 
-        stockUpdateTimestamp: nowISO,
+        stockUpdateTimestamp: now.toISOString(),
       };
       
       // Handle payment proof upload for bank transfer
@@ -345,7 +360,7 @@ export default function CheckoutPage() {
                                             <SelectItem key={addr.id} value={addr.id}>
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold">{addr.label}</span>
-                                                    <span className="text-xs text-muted-foreground">{addr.address}</span>
+                                                    <span className="text-xs text-muted-foreground">{addr.address}, {addr.city}</span>
                                                 </div>
                                             </SelectItem>
                                         ))}
@@ -530,5 +545,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-
-    
