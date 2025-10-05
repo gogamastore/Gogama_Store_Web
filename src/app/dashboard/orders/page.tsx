@@ -71,6 +71,7 @@ interface OrderProduct {
   quantity: number;
   price: number;
   image?: string;
+  imageUrl?: string;
   sku?: string;
 }
 interface CustomerDetails {
@@ -887,12 +888,16 @@ export default function OrdersPage() {
 
 
   const renderOrderList = (orders: Order[], tabName: string) => {
+    if (loading) {
+        return <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div>
+    }
+
     const selectedInTabCount = orders.filter(o => selectedOrders.includes(o.id)).length;
     const isAllInTabSelected = orders.length > 0 && selectedInTabCount === orders.length;
 
     return (
-        <div className="space-y-4">
-             <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
+        <>
+            <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
                 <Checkbox
                     id={`select-all-${tabName}`}
                     checked={isAllInTabSelected}
@@ -903,45 +908,44 @@ export default function OrdersPage() {
                     Pilih Semua ({selectedInTabCount} / {orders.length} terpilih)
                 </Label>
             </div>
-            {loading ? (
-                 <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div>
-            ) : orders.length > 0 ? (
-                orders.map(order => (
-                    <Card key={order.id} className="overflow-hidden">
-                        <CardHeader className="p-4 bg-card flex-row items-center justify-between border-b">
-                            <div className="flex items-center gap-4">
-                                <Checkbox 
-                                    checked={selectedOrders.includes(order.id)}
-                                    onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
-                                />
-                                <div className="flex items-center gap-2">
-                                     <User className="h-4 w-4 text-muted-foreground"/>
-                                     <span className="font-semibold">{order.customerDetails?.name || order.customer}</span>
+            <div className="space-y-4 mt-4">
+                {orders.length > 0 ? (
+                    orders.map(order => (
+                        <Card key={order.id} className="overflow-hidden">
+                            <CardHeader className="p-4 bg-card flex-row items-center justify-between border-b">
+                                <div className="flex items-center gap-4">
+                                    <Checkbox 
+                                        checked={selectedOrders.includes(order.id)}
+                                        onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-muted-foreground"/>
+                                        <span className="font-semibold">{order.customerDetails?.name || order.customer}</span>
+                                    </div>
+                                    <a href={`https://wa.me/${order.customerDetails?.whatsapp}`} target="_blank" rel="noopener noreferrer">
+                                        <MessageSquare className="h-4 w-4 text-primary cursor-pointer"/>
+                                    </a>
                                 </div>
-                                <a href={`https://wa.me/${order.customerDetails?.whatsapp}`} target="_blank" rel="noopener noreferrer">
-                                    <MessageSquare className="h-4 w-4 text-primary cursor-pointer"/>
-                                </a>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                                No. Pesanan <span className="font-medium text-foreground">{order.id.substring(0, 12)}...</span>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                           <div className="grid grid-cols-12 gap-4 p-4">
-                               <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
-                                   {order.products.slice(0, 2).map(product => (
-                                       <div key={product.productId} className="flex items-center gap-3">
-                                            <Image src={product.image || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
-                                            <div>
-                                                <p className="text-sm font-medium line-clamp-1">{product.name}</p>
-                                                <p className="text-xs text-muted-foreground">x{product.quantity}</p>
-                                            </div>
-                                       </div>
-                                   ))}
-                                    {order.products.length > 2 && (
-                                        <p className="text-xs text-muted-foreground pl-2">+ {order.products.length - 2} produk lainnya</p>
-                                    )}
-                               </div>
+                                <div className="text-sm text-muted-foreground">
+                                    No. Pesanan <span className="font-medium text-foreground">{order.id.substring(0, 12)}...</span>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                            <div className="grid grid-cols-12 gap-4 p-4">
+                                <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
+                                    {order.products.slice(0, 2).map(product => (
+                                        <div key={product.productId} className="flex items-center gap-3">
+                                                <Image src={product.image || product.imageUrl || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
+                                                <div>
+                                                    <p className="text-sm font-medium line-clamp-1">{product.name}</p>
+                                                    <p className="text-xs text-muted-foreground">x{product.quantity}</p>
+                                                </div>
+                                        </div>
+                                    ))}
+                                        {order.products.length > 2 && (
+                                            <p className="text-xs text-muted-foreground pl-2">+ {order.products.length - 2} produk lainnya</p>
+                                        )}
+                                </div>
                                 <div className="col-span-4 md:col-span-2 text-sm">
                                     <p className="text-muted-foreground">Total Pesanan</p>
                                     <p className="font-semibold">{formatCurrency(order.total)}</p>
@@ -1036,13 +1040,14 @@ export default function OrdersPage() {
                         </CardFooter>
                     </Card>
                 ))
-            ) : (
-                <div className="text-center p-8 border rounded-lg">
-                    <Package className="mx-auto h-12 w-12 text-muted-foreground"/>
-                    <p className="mt-4 text-muted-foreground">Tidak ada pesanan di kategori ini.</p>
-                </div>
-            )}
-        </div>
+                ) : (
+                    <div className="text-center p-8 border rounded-lg">
+                        <Package className="mx-auto h-12 w-12 text-muted-foreground"/>
+                        <p className="mt-4 text-muted-foreground">Tidak ada pesanan di kategori ini.</p>
+                    </div>
+                )}
+            </div>
+        </>
     );
   };
 
@@ -1142,3 +1147,4 @@ export default function OrdersPage() {
     
 
     
+
