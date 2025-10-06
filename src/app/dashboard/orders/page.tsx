@@ -258,7 +258,6 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             quantity: quantity,
             price: parseCurrency(product.price),
             imageUrl: product.image,
-            sku: product.sku
         };
         setEditableProducts(prev => [...prev, newProduct]);
     };
