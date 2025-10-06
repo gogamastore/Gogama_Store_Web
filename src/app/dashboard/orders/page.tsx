@@ -226,7 +226,12 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
 
     useEffect(() => {
         if (order) {
-            setEditableProducts(JSON.parse(JSON.stringify(order.products || []))); // Deep copy
+            // Deep copy and ensure SKU is a string
+            const productsWithStrSku = (order.products || []).map(p => ({
+                ...p,
+                sku: String(p.sku || ''),
+            }));
+            setEditableProducts(productsWithStrSku);
             setShippingFee(order.shippingFee || 0);
         }
     }, [order]);
@@ -237,7 +242,6 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
 
     const handleQuantityChange = (productId: string, newQuantity: number) => {
         const quantity = isNaN(newQuantity) || newQuantity < 0 ? 0 : newQuantity;
-        if (quantity === 0) return; // Prevent setting to 0 from buttons, but allow typing
         setEditableProducts(products => 
             products.map(p => p.productId === productId ? { ...p, quantity: quantity } : p)
         );
@@ -480,7 +484,7 @@ export default function OrdersPage() {
             return {
                 id: doc.id,
                 ...data,
-                status: status,
+                status: status as OrderStatus,
                 products,
                 total,
                 shippingFee: data.shippingFee || 0,
@@ -1176,13 +1180,3 @@ export default function OrdersPage() {
     </Card>
   )
 }
-
-    
-
-    
-
-    
-
-    
-
-    
