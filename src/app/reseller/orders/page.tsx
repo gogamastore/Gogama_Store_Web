@@ -52,7 +52,8 @@ interface OrderProduct {
   name: string;
   quantity: number;
   price: number;
-  image: string;
+  image?: string;
+  imageUrl?: string;
 }
 
 interface BankAccount {
@@ -292,7 +293,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                                         {order.products.map(p => (
                                             <TableRow key={p.productId}>
                                                 <TableCell className="flex items-center gap-2">
-                                                    <Image src={p.image} alt={p.name} width={40} height={40} className="rounded" />
+                                                    <Image src={p.imageUrl || p.image || "https://placehold.co/64x64.png"} alt={p.name} width={40} height={40} className="rounded" />
                                                     {p.name}
                                                 </TableCell>
                                                 <TableCell>{p.quantity}</TableCell>
@@ -483,7 +484,7 @@ function OrderHistoryPageContent() {
                           <CardContent className="p-4">
                             {order.products.slice(0, 2).map(product => (
                                <div key={product.productId} className="flex items-center gap-3 mb-2">
-                                    <Image src={product.image || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
+                                    <Image src={product.imageUrl || product.image || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
                                     <div>
                                         <p className="text-sm font-medium line-clamp-1">{product.name}</p>
                                         <p className="text-xs text-muted-foreground">x{product.quantity}</p>
