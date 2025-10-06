@@ -52,22 +52,27 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.password) {
-        toast({
-            variant: "destructive",
-            title: "Data Tidak Lengkap",
-            description: "Nama, email dan password harus diisi."
-        });
+
+    // --- Validation Logic ---
+    if (!formData.name || !formData.email || !formData.password || !formData.whatsapp) {
+        toast({ variant: "destructive", title: "Data Tidak Lengkap", description: "Semua kolom wajib diisi." });
         return;
     }
-     if (formData.password.length < 6) {
-        toast({
-            variant: "destructive",
-            title: "Password Lemah",
-            description: "Password minimal harus 6 karakter."
-        });
+    if (!/^[a-zA-Z\s]+$/.test(formData.name) || formData.name.trim().length < 4) {
+        toast({ variant: "destructive", title: "Nama Tidak Valid", description: "Nama lengkap minimal 4 huruf dan hanya boleh berisi huruf." });
         return;
     }
+    if (formData.password.length < 6) {
+        toast({ variant: "destructive", title: "Password Lemah", description: "Password minimal harus 6 karakter." });
+        return;
+    }
+    const whatsappNumber = formData.whatsapp.startsWith('62') ? formData.whatsapp.substring(2) : formData.whatsapp;
+    if (!/^\d+$/.test(whatsappNumber) || whatsappNumber.length < 10) {
+        toast({ variant: "destructive", title: "Nomor WhatsApp Tidak Valid", description: "Nomor WhatsApp minimal 10 angka setelah kode negara." });
+        return;
+    }
+    // --- End Validation Logic ---
+
     setLoading(true);
     try {
       // 1. Create user in Firebase Auth
@@ -76,16 +81,16 @@ export default function RegisterPage() {
 
       // 2. Save user profile and role to Firestore
       await setDoc(doc(db, "user", newUser.uid), {
-          name: formData.name,
+          name: formData.name.trim(),
           email: formData.email,
           whatsapp: formData.whatsapp,
-          role: 'reseller' // Set role in Firestore
+          role: 'reseller' // Ensure role is always reseller
       });
       
       // 3. Create a notification for the new reseller
       await addDoc(collection(db, "notifications"), {
         title: "Reseller Baru Terdaftar",
-        body: `${formData.name} telah mendaftar sebagai reseller baru.`,
+        body: `${formData.name.trim()} telah mendaftar sebagai reseller baru.`,
         createdAt: serverTimestamp(),
         type: 'new_reseller',
         relatedId: newUser.uid,
@@ -147,7 +152,7 @@ export default function RegisterPage() {
             </div>
              <div className="space-y-2">
               <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
-              <Input id="whatsapp" type="tel" placeholder="6281234567890" value={formData.whatsapp} onChange={handleInputChange} />
+              <Input id="whatsapp" type="tel" placeholder="6281234567890" required value={formData.whatsapp} onChange={handleInputChange} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
