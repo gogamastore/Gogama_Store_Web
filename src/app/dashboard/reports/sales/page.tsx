@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, doc, getDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, writeBatch, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -83,7 +83,7 @@ interface OrderProduct {
   quantity: number;
   price: number;
   image: string;
-  purchasePrice?: number; // Ensure this is part of the product data within an order
+  purchasePrice?: number;
 }
 
 interface Order {
@@ -94,11 +94,11 @@ interface Order {
   total: number;
   subtotal: number;
   shippingFee: number;
-  date: string; // Should be ISO 8601 string
+  date: string;
+  updatedAt: string; // Use updatedAt for filtering
   products: OrderProduct[];
 }
 
-// Helper function to format currency
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -107,20 +107,18 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-// Helper function to process data for the chart
 const processSalesDataForChart = (orders: Order[]) => {
     const salesByDate: { [key: string]: number } = {};
     orders.forEach(order => {
-        if (order.status === 'Processing' || order.status === 'Shipped' || order.status === 'Delivered') {
-             const date = new Date(order.date);
-             if (isValid(date)) {
-                const formattedDate = format(date, 'd MMM', { locale: dateFnsLocaleId });
-                if (salesByDate[formattedDate]) {
-                    salesByDate[formattedDate] += order.total;
-                } else {
-                    salesByDate[formattedDate] = order.total;
-                }
-             }
+        // Use updatedAt for chart data as well
+        const date = new Date(order.updatedAt); 
+        if (isValid(date)) {
+            const formattedDate = format(date, 'd MMM', { locale: dateFnsLocaleId });
+            if (salesByDate[formattedDate]) {
+                salesByDate[formattedDate] += order.total;
+            } else {
+                salesByDate[formattedDate] = order.total;
+            }
         }
     });
 
@@ -451,6 +449,7 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
                 subtotal: data.subtotal || 0,
                 shippingFee: data.shippingFee || 0,
                 date: data.date.toDate().toISOString(),
+                updatedAt: data.updatedAt.toDate().toISOString(),
                 products: data.products || [],
              } as Order);
         }
@@ -603,17 +602,22 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
 
 
 export default function SalesReportPage() {
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
   });
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    const { from, to } = dateRange || {};
+    if (!from || !to) {
+        setLoading(false);
+        return;
+    }
+    
     try {
         const productDocs = await getDocs(collection(db, "products"));
         const productMap = new Map<string, Product>();
@@ -621,8 +625,16 @@ export default function SalesReportPage() {
             productMap.set(doc.id, { id: doc.id, ...doc.data()} as Product);
         });
 
-      const querySnapshot = await getDocs(collection(db, "orders"));
-      const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
+        // Query based on updatedAt and relevant statuses
+        const ordersQuery = query(
+            collection(db, "orders"),
+            where('updatedAt', '>=', from),
+            where('updatedAt', '<=', to),
+            where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered'])
+        );
+      
+        const querySnapshot = await getDocs(ordersQuery);
+        const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
           const data = orderDoc.data();
           const total = typeof data.total === 'string' 
               ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
@@ -637,7 +649,6 @@ export default function SalesReportPage() {
               }
           }
 
-          // Embed purchasePrice into products
           const productsWithCogs = data.products.map((p: OrderProduct) => {
               const productInfo = productMap.get(p.productId);
               return {
@@ -654,54 +665,36 @@ export default function SalesReportPage() {
               subtotal: data.subtotal || 0,
               shippingFee: data.shippingFee || 0,
               products: productsWithCogs,
-              date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
+              date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
+              updatedAt: data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : new Date(data.updatedAt).toISOString(),
               customerDetails 
           } as Order;
       });
       const ordersData = await Promise.all(ordersDataPromises);
-      setAllOrders(ordersData);
-      // Initial filter for today
-      const todayOrders = filterOrdersByDate(ordersData, startOfDay(new Date()), endOfDay(new Date()));
-      setFilteredOrders(todayOrders);
+      setOrders(ordersData);
     } catch (error) {
       console.error("Error fetching orders: ", error);
     } finally {
       setLoading(false);
     }
-  }, []); // filterOrdersByDate is not a dependency as it's defined outside
-
-  const filterOrdersByDate = useCallback((orders: Order[], from?: Date, to?: Date) => {
-    if (!from && !to) {
-        return orders;
-    }
-    return orders.filter(order => {
-        const orderDate = new Date(order.date);
-        if (from && orderDate < startOfDay(from)) return false;
-        if (to && orderDate > endOfDay(to)) return false;
-        return true;
-    });
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
-
+  
   const handleFilter = () => {
-    const { from, to } = dateRange || {};
-    const filtered = filterOrdersByDate(allOrders, from, to);
-    setFilteredOrders(filtered);
+    fetchOrders();
   };
 
   const handleReset = () => {
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
     setDateRange({ from: todayStart, to: todayEnd });
-    const todayOrders = filterOrdersByDate(allOrders, todayStart, todayEnd);
-    setFilteredOrders(todayOrders);
   };
 
   const { totalRevenue, totalOrders, grossProfit, totalCogs, chartData } = useMemo(() => {
-    const validOrders = filteredOrders.filter(order => ['Processing', 'Shipped', 'Delivered'].includes(order.status));
+    const validOrders = orders; // Already filtered by status in query
     
     const revenue = validOrders.reduce((acc, order) => acc + order.total, 0);
     const ordersCount = validOrders.length;
@@ -713,7 +706,7 @@ export default function SalesReportPage() {
     
     const profit = revenue - cogs;
     
-    const chartDataProcessed = processSalesDataForChart(filteredOrders);
+    const chartDataProcessed = processSalesDataForChart(validOrders);
     
     return {
         totalRevenue: revenue,
@@ -722,7 +715,7 @@ export default function SalesReportPage() {
         totalCogs: cogs,
         chartData: chartDataProcessed
     };
-}, [filteredOrders]);
+}, [orders]);
 
 
   if (loading) {
@@ -863,20 +856,20 @@ export default function SalesReportPage() {
                 <TableRow>
                     <TableHead>Order ID</TableHead>
                     <TableHead>Pelanggan</TableHead>
-                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Tanggal Update</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {filteredOrders.filter(o => o.status !== 'Cancelled').length > 0 ? (
-                    filteredOrders.filter(o => o.status !== 'Cancelled').map((order) => (
+                {orders.length > 0 ? (
+                    orders.map((order) => (
                     <TableRow key={order.id}>
                         <TableCell>
                            <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
                         </TableCell>
                         <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
-                        <TableCell>{format(new Date(order.date), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
+                        <TableCell>{format(new Date(order.updatedAt), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>
                         <Badge
                             variant="outline"
