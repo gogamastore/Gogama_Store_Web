@@ -81,7 +81,7 @@ export default function ProfitLossReportPage() {
         // 1. Fetch Sales (Revenue and Products Sold) based on updatedAt
         const ordersQuery = query(
             collection(db, "orders"),
-            where("status", "in", ['Processing', 'Shipped', 'Delivered']),
+            where("status", "in", ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered']),
             where("updatedAt", ">=", from),
             where("updatedAt", "<=", to)
         );
@@ -114,7 +114,7 @@ export default function ProfitLossReportPage() {
                     purchasePrice = 0; // Product might be deleted
                 }
             }
-            totalCogs += purchasePrice * quantity;
+            totalCogs += (purchasePrice || 0) * quantity;
         }
         
         // 3. Fetch Operational Expenses
@@ -274,4 +274,3 @@ export default function ProfitLossReportPage() {
     </div>
   )
 }
-
