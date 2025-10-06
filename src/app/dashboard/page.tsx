@@ -99,12 +99,12 @@ function DashboardPageContent() {
             const todayStart = startOfDay(new Date());
             const todayEnd = endOfDay(new Date());
 
-            // LANGKAH 1: Mengambil data pesanan yang perlu dikirim atau sudah dikirim HARI INI.
+            // LANGKAH 1: Mengambil data pesanan yang diupdate HARI INI dengan status relevan.
             const revenueQuery = query(
                 collection(db, "orders"), 
-                where("status", "in", ["Processing", "Shipped"]),
-                where("date", ">=", todayStart),
-                where("date", "<=", todayEnd)
+                where("status", "in", ["Processing", "processing", "Shipped", "shipped", "Delivered", "delivered"]),
+                where("updatedAt", ">=", todayStart),
+                where("updatedAt", "<=", todayEnd)
             );
             const revenueSnapshot = await getDocs(revenueQuery);
             let totalRevenueToday = 0;
@@ -113,10 +113,10 @@ function DashboardPageContent() {
                 totalRevenueToday += parseFloat(totalString);
             });
 
-            // LANGKAH 2: Mengambil pesanan baru (Pending/Processing) HARI INI.
+            // LANGKAH 2: Mengambil pesanan baru (Pending/Processing) HARI INI (berdasarkan tanggal dibuat).
             const newOrdersQuery = query(
                 collection(db, "orders"),
-                where("status", "in", ["Pending", "Processing"]),
+                where("status", "in", ["Pending", "Processing", "pending", "processing"]),
                 where("date", ">=", todayStart),
                 where("date", "<=", todayEnd)
             );
@@ -144,7 +144,7 @@ function DashboardPageContent() {
             });
 
             // LANGKAH 5: Memproses data penjualan untuk grafik 6 bulan terakhir.
-            const allDeliveredOrdersQuery = query(collection(db, "orders"), where("status", "==", "Delivered"));
+            const allDeliveredOrdersQuery = query(collection(db, "orders"), where("status", "in", ["Delivered", "delivered"]));
             const allDeliveredOrdersSnapshot = await getDocs(allDeliveredOrdersQuery);
             const monthlySales: { [key: string]: number } = {};
             for (let i = 5; i >= 0; i--) { 
@@ -204,7 +204,7 @@ function DashboardPageContent() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(stats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground">
-              Total dari pesanan yang perlu dikirim & sudah dikirim hari ini
+              Total dari pesanan yang diproses/dikirim/selesai hari ini
             </p>
           </CardContent>
         </Card>
