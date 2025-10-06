@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -235,9 +236,10 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
     }, [editableProducts]);
 
     const handleQuantityChange = (productId: string, newQuantity: number) => {
-        if (newQuantity < 1) return;
+        const quantity = isNaN(newQuantity) || newQuantity < 0 ? 0 : newQuantity;
+        if (quantity === 0) return; // Prevent setting to 0 from buttons, but allow typing
         setEditableProducts(products => 
-            products.map(p => p.productId === productId ? { ...p, quantity: newQuantity } : p)
+            products.map(p => p.productId === productId ? { ...p, quantity: quantity } : p)
         );
     };
 
@@ -367,7 +369,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                                 <Input
                                                     type="number"
                                                     value={p.quantity}
-                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value, 10))}
+                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value, 10) || 0)}
                                                     className="w-14 h-7 text-center"
                                                     min="1"
                                                 />
@@ -389,7 +391,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>Hapus Produk dari Pesanan?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Anda yakin ingin menghapus <strong>{p.name}</strong> dari pesanan ini? Stok produk tidak akan dikembalikan secara otomatis.
+                                                            Anda yakin ingin menghapus <strong>{p.name}</strong> dari pesanan ini? Stok produk akan dikembalikan secara otomatis.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
@@ -506,7 +508,7 @@ export default function OrdersPage() {
             toast({ title: "Status Pesanan Diperbarui", description: "Beberapa pesanan yang dikirim telah ditandai selesai secara otomatis."});
         }
         
-        setAllOrders(updatedOrders);
+        setAllOrders(updatedOrders as Order[]);
 
     } catch (error) {
         console.error("Error fetching orders: ", error);
@@ -1174,6 +1176,8 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     
 
