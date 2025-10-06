@@ -493,7 +493,7 @@ export default function OrdersPage() {
         const batch = writeBatch(db);
         let updatedInBatch = false;
 
-        const updatedOrders = ordersData.map(order => {
+        const updatedOrders: Order[] = ordersData.map(order => {
             if (order.status === 'Shipped' && order.shippedAt && order.shippedAt.toDate() < fourDaysAgo) {
                 const orderRef = doc(db, "orders", order.id);
                 batch.update(orderRef, { status: 'Delivered' });
@@ -508,7 +508,7 @@ export default function OrdersPage() {
             toast({ title: "Status Pesanan Diperbarui", description: "Beberapa pesanan yang dikirim telah ditandai selesai secara otomatis."});
         }
         
-        setAllOrders(updatedOrders as Order[]);
+        setAllOrders(updatedOrders);
 
     } catch (error) {
         console.error("Error fetching orders: ", error);
