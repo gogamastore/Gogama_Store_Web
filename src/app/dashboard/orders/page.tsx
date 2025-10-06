@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -35,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import type { DateRange } from "react-day-picker";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -80,11 +80,13 @@ interface CustomerDetails {
     whatsapp: string;
 }
 
+type OrderStatus = 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+
 interface Order {
   id: string;
   customer: string;
   customerDetails?: CustomerDetails;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  status: OrderStatus;
   paymentStatus: 'Paid' | 'Unpaid';
   paymentMethod?: 'cod' | 'bank_transfer';
   paymentProofUrl?: string;
@@ -450,7 +452,7 @@ export default function OrdersPage() {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const { toast } = useToast();
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState("");
 
 
@@ -495,7 +497,7 @@ export default function OrdersPage() {
                 const orderRef = doc(db, "orders", order.id);
                 batch.update(orderRef, { status: 'Delivered' });
                 updatedInBatch = true;
-                return { ...order, status: 'Delivered' };
+                return { ...order, status: 'Delivered' as OrderStatus };
             }
             return order;
         });
@@ -828,7 +830,7 @@ export default function OrdersPage() {
 
 
   const filteredOrders = useMemo(() => {
-    const { from, to } = dateRange;
+    const { from, to } = dateRange || {};
     let filtered = allOrders;
 
     if (from || to) {
@@ -1172,6 +1174,8 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     
 
