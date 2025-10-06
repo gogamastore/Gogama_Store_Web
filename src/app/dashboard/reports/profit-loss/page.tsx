@@ -17,8 +17,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -79,12 +77,12 @@ export default function ProfitLossReportPage() {
   const fetchDataForReport = useCallback(async (from: Date, to: Date) => {
     setLoading(true);
     try {
-        // 1. Fetch Sales (Revenue and Products Sold)
+        // 1. Fetch Sales (Revenue and Products Sold) based on updatedAt
         const ordersQuery = query(
             collection(db, "orders"),
-            where("status", "in", ['Delivered', 'Shipped']),
-            where("date", ">=", from),
-            where("date", "<=", to)
+            where("status", "in", ['Processing', 'Shipped', 'Delivered']),
+            where("updatedAt", ">=", from),
+            where("updatedAt", "<=", to)
         );
         const ordersSnapshot = await getDocs(ordersQuery);
         let totalRevenue = 0;
