@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -70,13 +69,14 @@ interface Order {
   paymentMethod: 'bank_transfer' | 'cod';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
-  total: string;
+  total: number;
   date: any;
   products: OrderProduct[];
 }
 
 const formatCurrency = (amount: number | string) => {
     const num = typeof amount === 'string' ? parseFloat(String(amount).replace(/[^0-9]/g, '')) : amount;
+    if (isNaN(num)) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR',
@@ -227,7 +227,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
 
         const finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
         const subtotalOrder = order.products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-        const shippingFee = parseFloat(String(order.total).replace(/[^0-9]/g, '')) - subtotalOrder;
+        const shippingFee = (typeof order.total === 'string' ? parseFloat(String(order.total).replace(/[^0-9]/g, '')) : order.total) - subtotalOrder;
         
         pdfDoc.setFontSize(10);
         pdfDoc.text("Subtotal Produk:", 140, finalY);
@@ -238,7 +238,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
         pdfDoc.setFontSize(12);
         pdfDoc.setFont('helvetica', 'bold');
         pdfDoc.text("Total Pesanan:", 140, finalY + 14);
-        pdfDoc.text(String(order.total), 200, finalY + 14, { align: 'right' });
+        pdfDoc.text(formatCurrency(order.total), 200, finalY + 14, { align: 'right' });
 
         pdfDoc.output("dataurlnewwindow");
     };
@@ -311,7 +311,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     )}
 
                     <div className="text-right font-bold text-lg border-t pt-4">
-                        Total Pesanan: {order.total}
+                        Total Pesanan: {formatCurrency(order.total)}
                     </div>
                 </div>
                  <DialogFooter className="justify-between">
@@ -362,13 +362,18 @@ function OrderHistoryPageContent() {
         orderBy('date', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      const ordersData = querySnapshot.docs.map(
-        (doc) =>
-          ({
+      const ordersData = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        const total = typeof data.total === 'string' 
+            ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
+            : typeof data.total === 'number' ? data.total : 0;
+        
+        return {
             id: doc.id,
-            ...doc.data(),
-          } as Order)
-      );
+            ...data,
+            total,
+          } as Order;
+      });
       setOrders(ordersData);
     } catch (error: any) {
       console.error('Error fetching orders: ', error);
@@ -501,7 +506,7 @@ function OrderHistoryPageContent() {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-muted-foreground">Total</p>
-                                    <p className="font-bold">{order.total}</p>
+                                    <p className="font-bold">{formatCurrency(order.total)}</p>
                                 </div>
                             </div>
                             <div className="mt-2 text-sm">
