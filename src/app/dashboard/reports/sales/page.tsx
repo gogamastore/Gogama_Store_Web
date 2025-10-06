@@ -630,7 +630,7 @@ export default function SalesReportPage() {
             collection(db, "orders"),
             where('updatedAt', '>=', from),
             where('updatedAt', '<=', to),
-            where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered', 'Pending', 'pending'])
+            where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered'])
         );
       
         const querySnapshot = await getDocs(ordersQuery);
@@ -671,6 +671,10 @@ export default function SalesReportPage() {
           } as Order;
       });
       const ordersData = await Promise.all(ordersDataPromises);
+      
+      // Sort by updatedAt descending
+      ordersData.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
       setOrders(ordersData);
     } catch (error) {
       console.error("Error fetching orders: ", error);
@@ -911,5 +915,3 @@ export default function SalesReportPage() {
     </div>
   );
 }
-
-    
