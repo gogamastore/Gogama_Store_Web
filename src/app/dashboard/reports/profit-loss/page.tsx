@@ -103,18 +103,21 @@ export default function ProfitLossReportPage() {
         const productPurchasePrices = new Map<string, number>();
 
         for (const [productId, quantity] of soldProductsMap.entries()) {
-            let purchasePrice = productPurchasePrices.get(productId);
-            if (purchasePrice === undefined) {
+            let purchasePrice: number = 0; // Initialize as a number
+            
+            if (productPurchasePrices.has(productId)) {
+                purchasePrice = productPurchasePrices.get(productId) || 0;
+            } else {
                 const productRef = doc(db, "products", productId);
                 const productSnap = await getDoc(productRef);
                 if (productSnap.exists()) {
                     purchasePrice = productSnap.data().purchasePrice || 0;
                     productPurchasePrices.set(productId, purchasePrice);
                 } else {
-                    purchasePrice = 0; // Product might be deleted
+                    productPurchasePrices.set(productId, 0); // Still set 0 if product doesn't exist
                 }
             }
-            totalCogs += (purchasePrice || 0) * quantity;
+            totalCogs += purchasePrice * quantity;
         }
         
         // 3. Fetch Operational Expenses
