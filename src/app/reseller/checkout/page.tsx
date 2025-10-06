@@ -110,6 +110,7 @@ export default function CheckoutPage() {
    useEffect(() => {
     if (!authLoading && user) {
       async function fetchUserData() {
+        if (!user) return; // Add null check for type safety
         setIsAddressLoading(true);
         const userDocRef = doc(db, "user", user.uid);
         const userDoc = await getDoc(userDocRef);
