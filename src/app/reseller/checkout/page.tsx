@@ -108,7 +108,7 @@ export default function CheckoutPage() {
   const [isAddressLoading, setIsAddressLoading] = useState(true);
 
    useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading) {
       async function fetchUserData() {
         if (!user) return; // Add null check for type safety
         setIsAddressLoading(true);
@@ -240,7 +240,6 @@ export default function CheckoutPage() {
           price: item.finalPrice, // Using finalPrice which includes promo
           quantity: item.quantity,
           imageUrl: item.image,
-          sku: item.sku,
         })),
         productIds: cart.map(item => item.id),
 
