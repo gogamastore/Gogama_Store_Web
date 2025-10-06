@@ -572,7 +572,7 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
                           </TableCell>
                           <TableCell>{p.quantity}</TableCell>
                           <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(p.price * p.quantity)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -630,7 +630,7 @@ export default function SalesReportPage() {
             collection(db, "orders"),
             where('updatedAt', '>=', from),
             where('updatedAt', '<=', to),
-            where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered'])
+            where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered', 'Pending', 'pending'])
         );
       
         const querySnapshot = await getDocs(ordersQuery);
@@ -863,30 +863,39 @@ export default function SalesReportPage() {
                 </TableHeader>
                 <TableBody>
                 {orders.length > 0 ? (
-                    orders.map((order) => (
-                    <TableRow key={order.id}>
-                        <TableCell>
-                           <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
-                        </TableCell>
-                        <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
-                        <TableCell>{format(new Date(order.updatedAt), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
-                        <TableCell>
-                        <Badge
-                            variant="outline"
-                            className={
-                                order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                                order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                                order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
-                            }
-                        >
-                            {order.status}
-                        </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                        {formatCurrency(order.total)}
-                        </TableCell>
-                    </TableRow>
-                    ))
+                    orders.map((order) => {
+                        const statusText = order.status.toLowerCase() === 'delivered'
+                            ? 'Selesai'
+                            : order.status.toLowerCase() === 'shipped'
+                            ? 'Dikirim'
+                            : order.status.toLowerCase() === 'processing'
+                            ? 'Diproses'
+                            : order.status;
+                        return (
+                            <TableRow key={order.id}>
+                                <TableCell>
+                                <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
+                                </TableCell>
+                                <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
+                                <TableCell>{format(new Date(order.updatedAt), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
+                                <TableCell>
+                                <Badge
+                                    variant="outline"
+                                    className={
+                                        order.status.toLowerCase() === 'delivered' ? 'text-green-600 border-green-600' :
+                                        order.status.toLowerCase() === 'shipped' ? 'text-blue-600 border-blue-600' :
+                                        order.status.toLowerCase() === 'processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
+                                    }
+                                >
+                                    {statusText}
+                                </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                {formatCurrency(order.total)}
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })
                 ) : (
                     <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
@@ -902,3 +911,5 @@ export default function SalesReportPage() {
     </div>
   );
 }
+
+    
