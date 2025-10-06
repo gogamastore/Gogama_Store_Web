@@ -31,13 +31,14 @@ import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
+import type { DateRange } from "react-day-picker";
 
 interface Order {
   id: string;
   total: number;
   date: Date;
   products: { productId: string; quantity: number; price: number }[];
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  status: 'Delivered' | 'delivered' | 'shipped' | 'Shipped' | 'processing' | 'Processing';
 }
 
 interface PurchaseTransaction {
@@ -62,7 +63,7 @@ const formatCurrency = (amount: number) => {
 export default function ProfitLossReportPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
@@ -138,14 +139,14 @@ export default function ProfitLossReportPage() {
   }, []);
 
   useEffect(() => {
-    if (dateRange.from && dateRange.to) {
+    if (dateRange?.from && dateRange?.to) {
         fetchDataForReport(startOfDay(dateRange.from), endOfDay(dateRange.to));
     }
   }, [dateRange, fetchDataForReport]);
   
   const handleDownloadExcel = () => {
-    const fromDate = dateRange.from ? format(dateRange.from, 'dd MMMM yyyy', { locale: dateFnsLocaleId }) : 'N/A';
-    const toDate = dateRange.to ? format(dateRange.to, 'dd MMMM yyyy', { locale: dateFnsLocaleId }) : 'N/A';
+    const fromDate = dateRange?.from ? format(dateRange.from, 'dd MMMM yyyy', { locale: dateFnsLocaleId }) : 'N/A';
+    const toDate = dateRange?.to ? format(dateRange.to, 'dd MMMM yyyy', { locale: dateFnsLocaleId }) : 'N/A';
 
     const data = [
         ["Laporan Laba-Rugi"],
@@ -224,7 +225,7 @@ export default function ProfitLossReportPage() {
             <CardHeader>
                 <CardTitle>Ringkasan Laba-Rugi</CardTitle>
                 <CardDescription>
-                    Periode: {dateRange.from ? format(dateRange.from, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''} - {dateRange.to ? format(dateRange.to, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''}
+                    Periode: {dateRange?.from ? format(dateRange.from, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''} - {dateRange?.to ? format(dateRange.to, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''}
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -273,3 +274,4 @@ export default function ProfitLossReportPage() {
     </div>
   )
 }
+
