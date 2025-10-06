@@ -466,8 +466,7 @@ export default function OrdersPage() {
 
             // Normalize status to have capital letter
             let status = data.status || 'Pending';
-            status = status.charAt(0).toUpperCase() + status.slice(1);
-            if (status.toLowerCase() === 'processing') status = 'Processing'; // Handle specific cases if needed
+            status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
              // Normalize prices and total
             const products = data.products?.map((p: any) => ({
@@ -830,15 +829,16 @@ export default function OrdersPage() {
 
 
   const filteredOrders = useMemo(() => {
-    const { from, to } = dateRange || {};
     let filtered = allOrders;
 
-    if (from || to) {
+    if (dateRange?.from || dateRange?.to) {
         filtered = allOrders.filter(order => {
             if (!order.date?.toDate) return false;
             const orderDate = order.date.toDate();
-            if (from && orderDate < startOfDay(from)) return false;
-            if (to && orderDate > endOfDay(to)) return false;
+            const from = dateRange.from ? startOfDay(dateRange.from) : null;
+            const to = dateRange.to ? endOfDay(dateRange.to) : null;
+            if (from && orderDate < from) return false;
+            if (to && orderDate > to) return false;
             return true;
         });
     }
@@ -966,7 +966,7 @@ export default function OrdersPage() {
                                 <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
                                     {order.products.slice(0, 2).map(product => (
                                         <div key={product.productId} className="flex items-center gap-3">
-                                                <Image src={product.image || product.imageUrl || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
+                                                <Image src={product.imageUrl || product.image || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
                                                 <div>
                                                     <p className="text-sm font-medium line-clamp-1">{product.name}</p>
                                                     <p className="text-xs text-muted-foreground">x{product.quantity}</p>
@@ -1174,6 +1174,8 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
 
     
 
