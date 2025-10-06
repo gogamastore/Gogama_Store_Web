@@ -227,6 +227,10 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             setShippingFee(order.shippingFee || 0);
         }
     }, [order]);
+    
+    const sortedEditableProducts = useMemo(() => {
+        return [...editableProducts].sort((a, b) => a.name.localeCompare(b.name));
+    }, [editableProducts]);
 
     const handleQuantityChange = (productId: string, newQuantity: number) => {
         if (newQuantity < 1) return;
@@ -350,7 +354,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {editableProducts.map(p => (
+                                {sortedEditableProducts.map(p => (
                                     <TableRow key={p.productId}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>
@@ -373,13 +377,29 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                         <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
                                         <TableCell className="text-right font-semibold">{formatCurrency(p.price * p.quantity)}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(p.productId)}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
+                                             <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Hapus Produk dari Pesanan?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Anda yakin ingin menghapus <strong>{p.name}</strong> dari pesanan ini? Stok produk tidak akan dikembalikan secara otomatis.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleRemoveItem(p.productId)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </TableCell>
                                     </TableRow>
                                 ))}
-                                {editableProducts.length === 0 && (
+                                {sortedEditableProducts.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                                             Tidak ada produk dalam pesanan. Tambahkan produk baru untuk melanjutkan.
