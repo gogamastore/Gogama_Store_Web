@@ -144,8 +144,11 @@ function DashboardPageContent() {
             });
 
             // LANGKAH 5: Memproses data penjualan untuk grafik 6 bulan terakhir.
-            const allDeliveredOrdersQuery = query(collection(db, "orders"), where("status", "in", ["Delivered", "delivered"]));
-            const allDeliveredOrdersSnapshot = await getDocs(allDeliveredOrdersQuery);
+            const allSalesOrdersQuery = query(
+                collection(db, "orders"), 
+                where("status", "not-in", ["Cancelled", "cancelled"])
+            );
+            const allSalesOrdersSnapshot = await getDocs(allSalesOrdersQuery);
             const monthlySales: { [key: string]: number } = {};
             for (let i = 5; i >= 0; i--) { 
                 const targetMonth = subMonths(new Date(), i);
@@ -153,7 +156,7 @@ function DashboardPageContent() {
                 monthlySales[monthKey] = 0;
             }
 
-            allDeliveredOrdersSnapshot.docs.forEach(doc => {
+            allSalesOrdersSnapshot.docs.forEach(doc => {
                 const orderData = doc.data();
                 if(orderData.date && orderData.date.toDate) {
                     const orderDate = orderData.date.toDate();
