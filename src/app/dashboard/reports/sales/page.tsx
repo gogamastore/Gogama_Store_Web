@@ -81,7 +81,7 @@ interface OrderProduct {
   name: string;
   quantity: number;
   price: number;
-  image: string;
+  image?: string;
   imageUrl?: string;
   purchasePrice?: number;
 }
@@ -368,7 +368,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                                 <Input
                                                     type="number"
                                                     value={p.quantity}
-                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value, 10))}
+                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value))}
                                                     className="w-14 h-7 text-center"
                                                     min="1"
                                                 />
@@ -524,11 +524,9 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Faktur #{order?.id}</DialogTitle>
-          {order && (
-            <DialogDescription>
-              Detail pesanan yang diproses pada {format(new Date(order.updatedAt), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
+           <DialogDescription>
+              {order ? `Detail pesanan yang diproses pada ${format(new Date(order.updatedAt), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}` : 'Memuat detail pesanan...'}
             </DialogDescription>
-          )}
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
           <>
@@ -882,7 +880,7 @@ export default function SalesReportPage() {
                                     className={
                                         order.status.toLowerCase() === 'delivered' ? 'text-green-600 border-green-600' :
                                         order.status.toLowerCase() === 'shipped' ? 'text-blue-600 border-blue-600' :
-                                        order.status.toLowerCase() === 'processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
+                                        order.status.toLowerCase() === 'processing' ? 'text-orange-500 border-orange-500' : 'text-gray-600 border-gray-600'
                                     }
                                 >
                                     {statusText}
