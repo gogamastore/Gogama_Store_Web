@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -83,6 +82,7 @@ interface OrderProduct {
   quantity: number;
   price: number;
   image: string;
+  imageUrl?: string;
   purchasePrice?: number;
 }
 
@@ -156,7 +156,7 @@ function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentPro
         const availableProducts = allProducts.filter(p => !currentProductIds.includes(p.id));
         const results = availableProducts.filter(p => 
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+            (p.sku && String(p.sku).toLowerCase().includes(searchTerm.toLowerCase()))
         );
         setFilteredProducts(results);
     }, [searchTerm, allProducts, currentProducts]);
@@ -237,9 +237,9 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
     }, [order]);
 
     const handleQuantityChange = (productId: string, newQuantity: number) => {
-        if (newQuantity < 1) return;
+        const quantity = isNaN(newQuantity) || newQuantity < 0 ? 0 : newQuantity;
         setEditableProducts(products => 
-            products.map(p => p.productId === productId ? { ...p, quantity: newQuantity } : p)
+            products.map(p => p.productId === productId ? { ...p, quantity: quantity } : p)
         );
     };
 
@@ -253,7 +253,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             name: product.name,
             quantity: quantity,
             price: parseFloat(product.price.replace(/[^0-9]/g, '')),
-            image: product.image
+            imageUrl: product.image,
         };
         setEditableProducts(prev => [...prev, newProduct]);
     };
@@ -525,15 +525,9 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
         <DialogHeader>
           <DialogTitle>Faktur #{order?.id}</DialogTitle>
           {order && (
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{format(new Date(order.date), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</span>
-                <Badge variant="outline" className={
-                    order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                    order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                    order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
-                    order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
-                }>{order.status}</Badge>
-            </div>
+            <DialogDescription>
+              Detail pesanan yang diproses pada {format(new Date(order.updatedAt), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
+            </DialogDescription>
           )}
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
@@ -567,7 +561,7 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
                       {order.products?.map(p => (
                         <TableRow key={p.productId}>
                           <TableCell className="flex items-center gap-2">
-                            <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                            <Image src={p.imageUrl || p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
                             {p.name}
                           </TableCell>
                           <TableCell>{p.quantity}</TableCell>
@@ -722,7 +716,7 @@ export default function SalesReportPage() {
 }, [orders]);
 
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
         <div className="text-center p-8">
             <p>Memuat data laporan penjualan...</p>
