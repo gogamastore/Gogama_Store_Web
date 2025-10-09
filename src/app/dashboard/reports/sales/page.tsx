@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -95,7 +96,7 @@ interface Order {
   subtotal: number;
   shippingFee: number;
   date: string;
-  updatedAt: string; // Use updatedAt for filtering
+  validatedAt?: string;
   products: OrderProduct[];
 }
 
@@ -110,8 +111,9 @@ const formatCurrency = (amount: number) => {
 const processSalesDataForChart = (orders: Order[]) => {
     const salesByDate: { [key: string]: number } = {};
     orders.forEach(order => {
-        // Use updatedAt for chart data as well
-        const date = new Date(order.updatedAt); 
+        // Use validatedAt for chart data as well
+        const dateString = order.validatedAt || order.date;
+        const date = new Date(dateString); 
         if (isValid(date)) {
             const formattedDate = format(date, 'd MMM', { locale: dateFnsLocaleId });
             if (salesByDate[formattedDate]) {
@@ -231,12 +233,17 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
 
     useEffect(() => {
         if (order) {
-            setEditableProducts(JSON.parse(JSON.stringify(order.products || []))); // Deep copy
+            const productsWithStrSku = (order.products || []).map(p => ({
+                ...p,
+                sku: String(p.sku || ''),
+            }));
+            setEditableProducts(productsWithStrSku); 
             setShippingFee(order.shippingFee || 0);
         }
     }, [order]);
 
-    const handleQuantityChange = (productId: string, newQuantity: number) => {
+    const handleQuantityChange = (productId: string, newQuantityStr: string) => {
+        const newQuantity = parseInt(newQuantityStr, 10);
         const quantity = isNaN(newQuantity) || newQuantity < 0 ? 0 : newQuantity;
         setEditableProducts(products => 
             products.map(p => p.productId === productId ? { ...p, quantity: quantity } : p)
@@ -362,17 +369,17 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>
                                              <div className="flex items-center gap-1">
-                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, p.quantity - 1)}>
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, String(p.quantity - 1))}>
                                                     <Minus className="h-3 w-3" />
                                                 </Button>
                                                 <Input
                                                     type="number"
                                                     value={p.quantity}
-                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value))}
+                                                    onChange={(e) => handleQuantityChange(p.productId, e.target.value)}
                                                     className="w-14 h-7 text-center"
                                                     min="1"
                                                 />
-                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, p.quantity + 1)}>
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, String(p.quantity + 1))}>
                                                     <Plus className="h-3 w-3" />
                                                 </Button>
                                             </div>
@@ -449,7 +456,7 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
                 subtotal: data.subtotal || 0,
                 shippingFee: data.shippingFee || 0,
                 date: data.date.toDate().toISOString(),
-                updatedAt: data.updatedAt.toDate().toISOString(),
+                validatedAt: data.validatedAt ? data.validatedAt.toDate().toISOString() : data.date.toDate().toISOString(),
                 products: data.products || [],
              } as Order);
         }
@@ -525,7 +532,7 @@ function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrd
         <DialogHeader>
           <DialogTitle>Faktur #{order?.id}</DialogTitle>
            <DialogDescription>
-              {order ? `Detail pesanan yang diproses pada ${format(new Date(order.updatedAt), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}` : 'Memuat detail pesanan...'}
+              {order ? `Detail pesanan yang divalidasi pada ${format(new Date(order.validatedAt!), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}` : 'Memuat detail pesanan...'}
             </DialogDescription>
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
@@ -617,11 +624,11 @@ export default function SalesReportPage() {
             productMap.set(doc.id, { id: doc.id, ...doc.data()} as Product);
         });
 
-        // Query based on updatedAt and relevant statuses
+        // Query based on validatedAt and relevant statuses
         const ordersQuery = query(
             collection(db, "orders"),
-            where('updatedAt', '>=', from),
-            where('updatedAt', '<=', to),
+            where('validatedAt', '>=', from),
+            where('validatedAt', '<=', to),
             where('status', 'in', ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered'])
         );
       
@@ -658,14 +665,14 @@ export default function SalesReportPage() {
               shippingFee: data.shippingFee || 0,
               products: productsWithCogs,
               date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
-              updatedAt: data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : new Date(data.updatedAt).toISOString(),
+              validatedAt: data.validatedAt ? data.validatedAt.toDate().toISOString() : new Date(data.date).toISOString(),
               customerDetails 
           } as Order;
       });
-      const ordersData = await Promise.all(ordersDataPromises);
+      let ordersData = await Promise.all(ordersDataPromises);
       
-      // Sort by updatedAt descending
-      ordersData.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      // Sort by validatedAt descending
+      ordersData = ordersData.sort((a, b) => new Date(b.validatedAt!).getTime() - new Date(a.validatedAt!).getTime());
 
       setOrders(ordersData);
     } catch (error) {
@@ -852,7 +859,7 @@ export default function SalesReportPage() {
                 <TableRow>
                     <TableHead>Order ID</TableHead>
                     <TableHead>Pelanggan</TableHead>
-                    <TableHead>Tanggal Update</TableHead>
+                    <TableHead>Tanggal Validasi</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                 </TableRow>
@@ -873,7 +880,7 @@ export default function SalesReportPage() {
                                 <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
                                 </TableCell>
                                 <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
-                                <TableCell>{format(new Date(order.updatedAt), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
+                                <TableCell>{format(new Date(order.validatedAt!), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
                                 <TableCell>
                                 <Badge
                                     variant="outline"
