@@ -99,12 +99,12 @@ function DashboardPageContent() {
             const todayStart = startOfDay(new Date());
             const todayEnd = endOfDay(new Date());
 
-            // LANGKAH 1: Mengambil data pesanan yang diupdate HARI INI dengan status relevan.
+            // LANGKAH 1: Mengambil data pesanan yang divalidasi HARI INI dengan status relevan.
             const revenueQuery = query(
                 collection(db, "orders"), 
                 where("status", "in", ["Processing", "processing", "Shipped", "shipped", "Delivered", "delivered"]),
-                where("updatedAt", ">=", todayStart),
-                where("updatedAt", "<=", todayEnd)
+                where("validatedAt", ">=", todayStart),
+                where("validatedAt", "<=", todayEnd)
             );
             const revenueSnapshot = await getDocs(revenueQuery);
             let totalRevenueToday = 0;
