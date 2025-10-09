@@ -3,6 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +17,11 @@ import {
 import { useCart } from "@/hooks/use-cart";
 import { Minus, Plus, ShoppingBag, Trash2, X, ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
@@ -29,6 +35,69 @@ const formatCurrency = (amount: number) => {
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, totalAmount, clearCart, loading } = useCart();
   const router = useRouter();
+  const { toast } = useToast();
+  const [isCheckingStock, setIsCheckingStock] = useState(false);
+  const [invalidStockProducts, setInvalidStockProducts] = useState<string[]>([]);
+
+
+  const handleProceedToCheckout = async () => {
+    setIsCheckingStock(true);
+    setInvalidStockProducts([]); // Reset previous errors
+    const invalidProducts: { name: string; stock: number }[] = [];
+
+    // Create a copy of the cart to iterate over
+    const cartToCheck = [...cart];
+
+    for (const item of cartToCheck) {
+        const productRef = doc(db, "products", item.id);
+        try {
+            const productSnap = await getDoc(productRef);
+            if (productSnap.exists()) {
+                const currentStock = productSnap.data().stock || 0;
+                if (currentStock < item.quantity) {
+                    invalidProducts.push({ name: item.name, stock: currentStock });
+                }
+            } else {
+                // Product doesn't exist in the database anymore
+                invalidProducts.push({ name: item.name, stock: 0 });
+            }
+        } catch (error) {
+            console.error("Error checking stock for product:", item.id, error);
+            toast({
+                variant: "destructive",
+                title: "Gagal memvalidasi stok",
+                description: "Terjadi kesalahan koneksi, silakan coba lagi.",
+            });
+            setIsCheckingStock(false);
+            return;
+        }
+    }
+
+    if (invalidProducts.length > 0) {
+      const invalidProductIds = cartToCheck.filter(item => 
+        invalidProducts.some(p => p.name === item.name)
+      ).map(item => item.id);
+
+      setInvalidStockProducts(invalidProductIds);
+
+      const errorMessages = invalidProducts.map(p => 
+        `${p.name} (sisa stok: ${p.stock})`
+      ).join(', ');
+
+      toast({
+        variant: "destructive",
+        title: "Stok Produk Tidak Mencukupi",
+        description: `Stok untuk: ${errorMessages}. Silakan hapus atau kurangi jumlahnya untuk melanjutkan.`,
+        duration: 8000,
+      });
+
+    } else {
+      router.push("/reseller/checkout");
+    }
+
+    setIsCheckingStock(false);
+  };
+
 
   return (
     <div className="container mx-auto px-4 py-8 pb-32 md:pb-8">
@@ -64,7 +133,10 @@ export default function CartPage() {
                 <div className="lg:hidden">
                     <div className="space-y-4 p-2">
                         {cart.map(item => (
-                            <div key={item.id} className="flex items-start gap-3 border-b pb-4 last:border-b-0">
+                            <div key={item.id} className={cn(
+                                "flex items-start gap-3 border-b pb-4 last:border-b-0",
+                                invalidStockProducts.includes(item.id) && "bg-destructive/10 rounded-md p-2"
+                            )}>
                                 <Image
                                     src={item.image}
                                     alt={item.name}
@@ -95,6 +167,7 @@ export default function CartPage() {
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
                                     </div>
+                                    {invalidStockProducts.includes(item.id) && <p className="text-xs text-destructive font-medium">Stok tidak cukup</p>}
                                 </div>
                             </div>
                         ))}
@@ -116,7 +189,7 @@ export default function CartPage() {
                         </TableHeader>
                         <TableBody>
                             {cart.map((item) => (
-                                <TableRow key={item.id}>
+                                <TableRow key={item.id} className={cn(invalidStockProducts.includes(item.id) && "bg-destructive/10")}>
                                     <TableCell>
                                         <Image
                                             src={item.image}
@@ -126,7 +199,10 @@ export default function CartPage() {
                                             className="rounded-md object-cover"
                                         />
                                     </TableCell>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        {item.name}
+                                        {invalidStockProducts.includes(item.id) && <p className="text-xs text-destructive font-medium">Stok tidak cukup</p>}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1}>
@@ -181,8 +257,9 @@ export default function CartPage() {
                         <span>{formatCurrency(totalAmount)}</span>
                     </div>
                 </div>
-                 <Button asChild className="w-full mt-6" size="lg">
-                    <Link href="/reseller/checkout">Lanjutkan ke Pembayaran</Link>
+                 <Button onClick={handleProceedToCheckout} className="w-full mt-6" size="lg" disabled={isCheckingStock}>
+                    {isCheckingStock && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Lanjutkan ke Pembayaran
                 </Button>
             </div>
           </div>
@@ -197,8 +274,9 @@ export default function CartPage() {
                     <p className="text-xs text-muted-foreground">Total</p>
                     <p className="font-bold text-lg text-primary">{formatCurrency(totalAmount)}</p>
                 </div>
-                <Button asChild>
-                    <Link href="/reseller/checkout">Lanjutkan</Link>
+                <Button onClick={handleProceedToCheckout} disabled={isCheckingStock}>
+                    {isCheckingStock && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Lanjutkan
                 </Button>
             </div>
         </div>
