@@ -85,6 +85,7 @@ interface OrderProduct {
   image?: string;
   imageUrl?: string;
   purchasePrice?: number;
+  sku?: string;
 }
 
 interface Order {
