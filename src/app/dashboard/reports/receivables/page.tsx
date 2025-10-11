@@ -36,7 +36,7 @@ import {
   DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
-import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft, Loader2, Printer } from "lucide-react";
+import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft, Loader2, Printer, Download } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -179,10 +179,10 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
           {order && (
             <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
                 <div>Status Pesanan: <Badge variant="outline" className={
-                    order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                    order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                    order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
-                    order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                    order.status.toLowerCase() === 'delivered' ? 'text-green-600 border-green-600' :
+                    order.status.toLowerCase() === 'shipped' ? 'text-blue-600 border-blue-600' :
+                    order.status.toLowerCase() === 'processing' ? 'text-yellow-600 border-yellow-600' : 
+                    order.status.toLowerCase() === 'cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
                 }>{order.status}</Badge></div>
                 <Separator orientation="vertical" className="h-4"/>
                 <div>Status Pembayaran: <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus}</Badge></div>
@@ -329,6 +329,43 @@ export default function ReceivablesReportPage() {
         totalReceivableOrders: ordersCount,
     };
   }, [filteredReceivables]);
+  
+  const generatePdfReport = () => {
+    const doc = new jsPDF();
+    const fromDate = dateRange?.from ? format(dateRange.from, "dd MMMM yyyy", { locale: dateFnsLocaleId }) : "awal";
+    const toDate = dateRange?.to ? format(dateRange.to, "dd MMMM yyyy", { locale: dateFnsLocaleId }) : "sekarang";
+
+    doc.setFontSize(18);
+    doc.text("Laporan Piutang Usaha", 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Periode: ${fromDate} - ${toDate}`, 14, 30);
+    doc.text(`Total Piutang: ${formatCurrency(totalReceivableAmount)}`, 14, 36);
+
+
+    const tableColumn = ["Order ID", "Pelanggan", "Tanggal Pesan", "Status", "Jumlah Piutang"];
+    const tableRows = filteredReceivables.map(order => [
+        order.id.substring(0,10) + '...',
+        order.customer,
+        format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId }),
+        order.status.charAt(0).toUpperCase() + order.status.slice(1),
+        formatCurrency(order.total)
+    ]);
+    
+    tableRows.push(["", "", "", "Total", formatCurrency(totalReceivableAmount)]);
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 42,
+        foot: [[
+            { content: 'Total', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+            { content: formatCurrency(totalReceivableAmount), styles: { halign: 'right', fontStyle: 'bold' } }
+        ]],
+        footStyles: { fillColor: [230, 230, 230] }
+    });
+
+    doc.save(`Laporan_Piutang_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  };
 
   if (loading) {
     return (
@@ -392,6 +429,10 @@ export default function ReceivablesReportPage() {
             </Popover>
             <Button onClick={handleFilter}>Filter</Button>
             <Button variant="outline" onClick={handleReset}>Reset ke Semua</Button>
+            <Button onClick={generatePdfReport} variant="secondary">
+                <Download className="mr-2 h-4 w-4"/>
+                Download Piutang
+            </Button>
         </CardContent>
       </Card>
 
@@ -452,7 +493,8 @@ export default function ReceivablesReportPage() {
                             className={
                                 order.status.toLowerCase() === 'delivered' ? 'text-green-600 border-green-600' : 
                                 order.status.toLowerCase() === 'shipped' ? 'text-blue-600 border-blue-600' :
-                                'text-yellow-600 border-yellow-600'
+                                order.status.toLowerCase() === 'processing' ? 'text-yellow-600 border-yellow-600' :
+                                ''
                             }
                         >
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -479,7 +521,3 @@ export default function ReceivablesReportPage() {
     </div>
   );
 }
-
-
-
-    
