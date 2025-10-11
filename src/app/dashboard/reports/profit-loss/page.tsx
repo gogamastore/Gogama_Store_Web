@@ -82,8 +82,8 @@ export default function ProfitLossReportPage() {
         const ordersQuery = query(
             collection(db, "orders"),
             where("status", "in", ['Processing', 'processing', 'Shipped', 'shipped', 'Delivered', 'delivered']),
-            where("updatedAt", ">=", from),
-            where("updatedAt", "<=", to)
+            where("validatedAt", ">=", from),
+            where("validatedAt", "<=", to)
         );
         const ordersSnapshot = await getDocs(ordersQuery);
         let totalRevenue = 0;

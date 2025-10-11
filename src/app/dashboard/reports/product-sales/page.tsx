@@ -37,13 +37,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Package, FileText, Loader2, ArrowLeft, Printer, Search } from "lucide-react";
+import { Calendar as CalendarIcon, Package, FileText, Loader2, ArrowLeft, Printer, Search, Download } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 
 declare module 'jspdf' {
@@ -57,7 +58,8 @@ interface OrderProduct {
   name: string;
   quantity: number;
   price: number;
-  image: string;
+  image?: string;
+  imageUrl?: string;
 }
 interface FullOrder {
   id: string;
@@ -212,7 +214,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                                         {order.products?.map(p => (
                                             <TableRow key={p.productId}>
                                             <TableCell className="flex items-center gap-2">
-                                                <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                                                <Image src={p.imageUrl || p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
                                                 {p.name}
                                             </TableCell>
                                             <TableCell>{p.quantity}</TableCell>
@@ -330,6 +332,23 @@ export default function ProductSalesReportPage() {
     }
   }, [dateRange, generateReport]);
   
+  const handleDownloadExcel = () => {
+    const dataToExport = filteredReportData.map((product, index) => ({
+      'Peringkat': index + 1,
+      'Nama Produk': product.name,
+      'SKU': product.sku,
+      'Total Terjual (unit)': product.totalSold,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Penjualan Produk");
+
+    const fromDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '';
+    const toDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : '';
+    XLSX.writeFile(workbook, `Laporan_Penjualan_Produk_${fromDate}_to_${toDate}.xlsx`);
+  };
+  
   return (
     <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -361,6 +380,10 @@ export default function ProductSalesReportPage() {
                         <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
                     </PopoverContent>
                 </Popover>
+                 <Button onClick={handleDownloadExcel} disabled={loading}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Laporan
+                </Button>
             </CardContent>
         </Card>
 
