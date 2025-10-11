@@ -56,7 +56,8 @@ interface OrderProduct {
   name: string;
   quantity: number;
   price: number;
-  image: string;
+  image?: string;
+  imageUrl?: string;
 }
 interface FullOrder {
   id: string;
@@ -217,7 +218,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                     {order.products?.map(p => (
                       <TableRow key={p.productId}>
                         <TableCell className="flex items-center gap-2">
-                          <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                          <Image src={p.imageUrl || p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
                           {p.name}
                         </TableCell>
                         <TableCell>{p.quantity}</TableCell>
@@ -294,7 +295,7 @@ export default function ReceivablesReportPage() {
                 } as Order;
             })
             // Post-filter by status in the code to include all relevant, non-cancelled orders
-            .filter(order => order.status !== 'cancelled');
+            .filter(order => order.status !== 'cancelled' && order.status !== 'pending');
 
         setAllReceivables(receivableOrders);
         setFilteredReceivables(receivableOrders); // Initially show all receivables
