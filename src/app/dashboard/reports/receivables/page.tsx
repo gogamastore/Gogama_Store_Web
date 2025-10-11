@@ -44,6 +44,7 @@ import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import type { DateRange } from "react-day-picker";
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -252,7 +253,7 @@ export default function ReceivablesReportPage() {
   const [allReceivables, setAllReceivables] = useState<Order[]>([]);
   const [filteredReceivables, setFilteredReceivables] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const router = useRouter();
 
 
@@ -283,19 +284,19 @@ export default function ReceivablesReportPage() {
                     ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
                     : typeof data.total === 'number' ? data.total : 0;
                 
-                // Normalize status to handle capitalization
-                const status = (data.status || '').toLowerCase();
-
                 return { 
                     id: doc.id, 
                     ...data,
-                    status: status, // Use normalized status
+                    status: data.status,
                     total,
                     date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(),
                 } as Order;
             })
             // Post-filter by status in the code to include all relevant, non-cancelled orders
-            .filter(order => order.status !== 'cancelled' && order.status !== 'pending');
+            .filter(order => {
+                const lowerCaseStatus = order.status.toLowerCase();
+                return lowerCaseStatus === 'processing' || lowerCaseStatus === 'shipped' || lowerCaseStatus === 'delivered';
+            });
 
         setAllReceivables(receivableOrders);
         setFilteredReceivables(receivableOrders); // Initially show all receivables
@@ -310,13 +311,13 @@ export default function ReceivablesReportPage() {
   }, []);
 
   const handleFilter = () => {
-    const { from, to } = dateRange;
+    const { from, to } = dateRange || {};
     const filtered = filterReceivablesByDate(allReceivables, from, to);
     setFilteredReceivables(filtered);
   };
 
   const handleReset = () => {
-    setDateRange({});
+    setDateRange(undefined);
     setFilteredReceivables(allReceivables);
   };
 
@@ -449,8 +450,8 @@ export default function ReceivablesReportPage() {
                         <Badge
                             variant="outline"
                             className={
-                                order.status === 'delivered' ? 'text-green-600 border-green-600' : 
-                                order.status === 'shipped' ? 'text-blue-600 border-blue-600' :
+                                order.status.toLowerCase() === 'delivered' ? 'text-green-600 border-green-600' : 
+                                order.status.toLowerCase() === 'shipped' ? 'text-blue-600 border-blue-600' :
                                 'text-yellow-600 border-yellow-600'
                             }
                         >

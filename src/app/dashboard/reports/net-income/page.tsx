@@ -60,7 +60,7 @@ export default function NetIncomeReportPage() {
         // 1. Fetch Sales (Revenue)
         const ordersQuery = query(
             collection(db, "orders"),
-            where("status", "in", ['Delivered', 'Shipped']),
+            where("status", "in", [''Delivered', 'Shipped']),
             where("date", ">=", from),
             where("date", "<=", to)
         );
