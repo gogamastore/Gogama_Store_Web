@@ -94,7 +94,7 @@ export default function NetIncomeReportPage() {
                         purchasePrice = 0; // Product might be deleted
                     }
                 }
-                totalCogs += purchasePrice * quantity;
+                totalCogs += (purchasePrice || 0) * quantity;
             }
         }
         
