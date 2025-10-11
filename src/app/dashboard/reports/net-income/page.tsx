@@ -25,10 +25,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, TrendingUp, TrendingDown, DollarSign, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, TrendingUp, TrendingDown, DollarSign, ArrowLeft, Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import type { DateRange } from "react-day-picker";
 
 
 const formatCurrency = (amount: number) => {
@@ -42,7 +43,7 @@ const formatCurrency = (amount: number) => {
 export default function NetIncomeReportPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
@@ -60,7 +61,7 @@ export default function NetIncomeReportPage() {
         // 1. Fetch Sales (Revenue)
         const ordersQuery = query(
             collection(db, "orders"),
-            where("status", "in", [''Delivered', 'Shipped']),
+            where("status", "in", ['Processing', 'processing', 'Delivered', 'delivered', 'Shipped', 'shipped']),
             where("date", ">=", from),
             where("date", "<=", to)
         );
@@ -119,7 +120,7 @@ export default function NetIncomeReportPage() {
   }, []);
 
   useEffect(() => {
-    if (dateRange.from && dateRange.to) {
+    if (dateRange?.from && dateRange?.to) {
         fetchDataForReport(startOfDay(dateRange.from), endOfDay(dateRange.to));
     }
   }, [dateRange, fetchDataForReport]);
@@ -159,13 +160,16 @@ export default function NetIncomeReportPage() {
       </Card>
       
       {loading ? (
-        <div className="text-center p-8 text-muted-foreground">Menghitung laporan...</div>
+        <div className="text-center p-8 text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Menghitung laporan...</span>
+        </div>
       ) : (
         <Card>
             <CardHeader>
                 <CardTitle>Ringkasan Pendapatan Bersih</CardTitle>
                 <CardDescription>
-                    Periode: {dateRange.from ? format(dateRange.from, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''} - {dateRange.to ? format(dateRange.to, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''}
+                    Periode: {dateRange?.from ? format(dateRange.from, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''} - {dateRange?.to ? format(dateRange.to, "d MMMM yyyy", { locale: dateFnsLocaleId }) : ''}
                 </CardDescription>
             </CardHeader>
             <CardContent>
