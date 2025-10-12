@@ -258,6 +258,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             quantity: quantity,
             price: parseCurrency(product.price),
             imageUrl: product.image,
+            sku: product.sku,
         };
         setEditableProducts(prev => [...prev, newProduct]);
     };
@@ -646,21 +647,28 @@ export default function OrdersPage() {
           const order = { id: orderDoc.id, ...orderDoc.data() } as Order;
           
           // Header
-          pdf.setFontSize(16);
+          pdf.setFontSize(18);
           pdf.setFont('helvetica', 'bold');
-          pdf.text(type === 'invoice' ? `Faktur: #${order.id.substring(0,7)}` : `Packing Slip: #${order.id.substring(0,7)}`, 14, 20);
+          pdf.text(type === 'invoice' ? 'FAKTUR PENJUALAN' : 'SLIP PENGEPAKAN', 105, 20, { align: 'center' });
+          
+          // Order Details
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
+          pdf.text(`No. Pesanan: ${order.id}`, 14, 30);
+          pdf.text(`Tanggal: ${format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}`, 14, 35);
+          pdf.text(`Status Pesanan: ${order.status}`, 14, 40);
+          pdf.text(`Status Pembayaran: ${order.paymentStatus}`, 14, 45);
           
-          let currentY = 20;
-
-          pdf.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, currentY += 10);
-          pdf.text(`Status: ${order.status} | Pembayaran: ${order.paymentStatus}`, 14, currentY += 5);
+          // Customer Details
+          pdf.text(`Kepada:`, 14, 55);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(order.customerDetails?.name || order.customer, 14, 60);
+          pdf.setFont('helvetica', 'normal');
+          const addressLines = pdf.splitTextToSize(order.customerDetails?.address || 'Alamat tidak tersedia', 90);
+          pdf.text(addressLines, 14, 65);
+          let currentY = 65 + (addressLines.length * 5);
+          pdf.text(`Telp/WA: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, currentY);
           
-          const addressLines = pdf.splitTextToSize(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 180);
-          pdf.text(addressLines, 14, currentY += 6);
-          currentY += (addressLines.length * 5);
-
           const tableY = currentY + 10;
           
           // Fetch product details for SKUs if needed for packing slip
@@ -1179,3 +1187,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
