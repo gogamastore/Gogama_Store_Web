@@ -29,7 +29,7 @@ import { collection, getDocs, query, where, Timestamp } from "firebase/firestore
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
-import { subDays, format } from "date-fns";
+import { subDays, format, startOfDay, endOfDay } from "date-fns";
 import type { SuggestOptimalStockLevelsOutput } from "@/ai/schemas/stock-suggestion-schemas";
 import type { DateRange } from "react-day-picker";
 
@@ -52,12 +52,13 @@ interface Product {
 async function getSalesDataForProduct(productId: string, startDate: Date, endDate: Date) {
     const salesData: { orderDate: string; quantity: number }[] = [];
     
+    // Query is now based on 'validatedAt' to align with sales reports
     const ordersQuery = query(
         collection(db, "orders"),
         where("productIds", "array-contains", productId),
-        where("status", "in", ["Processing", "processing", "shipped" , "Shipped", "delivered" , "Delivered"]),
-        where("date", ">=", startDate),
-        where("date", "<=", endDate)
+        where("status", "in", ["Processing", "processing", "Shipped", "shipped", "Delivered", "delivered"]),
+        where("validatedAt", ">=", startDate),
+        where("validatedAt", "<=", endDate)
     );
 
     const querySnapshot = await getDocs(ordersQuery);
@@ -65,8 +66,10 @@ async function getSalesDataForProduct(productId: string, startDate: Date, endDat
         const order = doc.data();
         order.products?.forEach((item: { productId: string; quantity: number; }) => {
             if (item.productId === productId) {
+                // We use validatedAt for the date grouping
+                const validationDate = order.validatedAt ? order.validatedAt.toDate() : order.date.toDate();
                 salesData.push({
-                    orderDate: format(order.date.toDate(), 'yyyy-MM-dd'),
+                    orderDate: format(validationDate, 'yyyy-MM-dd'),
                     quantity: item.quantity
                 });
             }
@@ -136,9 +139,9 @@ export default function StockSuggestionPage() {
     startTransition(async () => {
       setResult(null);
       try {
-        const { from: startDate, to: endDate } = dateRange;
-        if (!startDate || !endDate) return;
-
+        const startDate = startOfDay(dateRange.from!);
+        const endDate = endOfDay(dateRange.to!);
+        
         const analysisPeriodInDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         
         const salesData = await getSalesDataForProduct(selectedProduct.id, startDate, endDate);
