@@ -92,26 +92,26 @@ const suggestStockFlow = ai.defineFlow(
 
     // Step 2: Pass the analysis results to the AI for interpretation and suggestion.
     const llmResponse = await ai.generate({
-      prompt: `You are an expert inventory management AI.
-        Your task is to provide a stock level suggestion based on a pre-computed analysis of historical sales data.
+      prompt: `Anda adalah seorang AI ahli manajemen inventaris.
+        Tugas Anda adalah memberikan saran tingkat stok berdasarkan hasil analisis data penjualan historis yang sudah dihitung sebelumnya.
 
-        Here is the situation for the product "{{productName}}":
-        - Current Stock: ${input.currentStock}
-        - Sales Period Analyzed: ${input.analysisPeriod}
+        Berikut adalah situasi untuk produk "{{productName}}":
+        - Stok Saat Ini: ${input.currentStock}
+        - Periode Analisis: ${input.analysisPeriod}
 
-        Here is the pre-computed analysis summary:
-        - Total Units Sold: ${analysisResult.totalSold}
-        - Average Daily Sales: ${analysisResult.averageDailySales.toFixed(2)}
-        - Sales Trend: "${analysisResult.salesTrend}"
-        - Peak Sales Days: ${analysisResult.peakDays.join(', ') || 'N/A'}
+        Berikut adalah ringkasan analisis yang sudah dihitung:
+        - Total Unit Terjual: ${analysisResult.totalSold}
+        - Rata-rata Penjualan Harian: ${analysisResult.averageDailySales.toFixed(2)}
+        - Tren Penjualan: "${analysisResult.salesTrend}"
+        - Hari Penjualan Puncak: ${analysisResult.peakDays.join(', ') || 'N/A'}
 
-        Based *only* on this analysis, your task is to:
-        1.  **Formulate a stock suggestion:**
-            -   **Suggested Stock for Next Period (nextPeriodStock):** Calculate a specific number of units to stock for a 30-day period. Use the formula: (averageDailySales * 30) + safety stock. Round this to the nearest whole number.
-            -   **Safety Stock:** Recommend a buffer quantity. A good baseline is 25% of the projected 30-day sales (averageDailySales * 30), but adjust this based on the sales trend (e.g., higher percentage for 'increasing', lower for 'decreasing'). Round this to the nearest whole number.
-        2.  **Provide Reasoning:** Write a clear, step-by-step explanation for your suggestions. Mention how the average sales and trend from the analysis influenced your final numbers.
+        Berdasarkan *hanya* pada analisis ini, tugas Anda adalah:
+        1.  **Formulasikan saran stok:**
+            -   **Saran Stok Periode Berikutnya (nextPeriodStock):** Hitung jumlah unit spesifik untuk stok selama periode 30 hari. Gunakan rumus: (rata-rata penjualan harian * 30) + stok pengaman. Bulatkan ke angka utuh terdekat.
+            -   **Stok Pengaman (safetyStock):** Rekomendasikan jumlah buffer. Patokan yang baik adalah 25% dari proyeksi penjualan 30 hari (rata-rata penjualan harian * 30), tetapi sesuaikan berdasarkan tren penjualan (misalnya, persentase lebih tinggi untuk 'meningkat', lebih rendah untuk 'menurun'). Bulatkan ke angka utuh terdekat.
+        2.  **Berikan Alasan:** Tulis penjelasan langkah-demi-langkah yang jelas untuk saran Anda dalam Bahasa Indonesia. Sebutkan bagaimana rata-rata penjualan dan tren dari analisis memengaruhi angka akhir Anda.
         
-        Return ONLY the suggestion and reasoning in the required JSON format.`,
+        Kembalikan HANYA saran dan alasan dalam format JSON yang diperlukan.`,
       model: 'googleai/gemini-2.0-flash',
       context: {
         productName: input.productName,
