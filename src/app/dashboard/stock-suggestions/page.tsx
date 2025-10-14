@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { subDays, format } from "date-fns";
 import type { SuggestOptimalStockLevelsOutput } from "@/ai/schemas/stock-suggestion-schemas";
+import type { DateRange } from "react-day-picker";
 
 interface Product {
   id: string;
@@ -54,7 +55,7 @@ async function getSalesDataForProduct(productId: string, startDate: Date, endDat
     const ordersQuery = query(
         collection(db, "orders"),
         where("productIds", "array-contains", productId),
-        where("status", "in", ["Shipped", "Delivered"]),
+        where("status", "in", ["Processing", "processing", "shipped" , "Shipped", "delivered" , "Delivered"]),
         where("date", ">=", startDate),
         where("date", "<=", endDate)
     );
@@ -86,7 +87,7 @@ export default function StockSuggestionPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
       to: new Date()
   });
@@ -136,6 +137,8 @@ export default function StockSuggestionPage() {
       setResult(null);
       try {
         const { from: startDate, to: endDate } = dateRange;
+        if (!startDate || !endDate) return;
+
         const analysisPeriodInDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         
         const salesData = await getSalesDataForProduct(selectedProduct.id, startDate, endDate);
