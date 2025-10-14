@@ -13,7 +13,7 @@
 
 import {ai} from '@/ai/genkit';
 import {parse, differenceInDays, format} from 'date-fns';
-import { SuggestOptimalStockLevelsInput, SuggestOptimalStockLevelsInputSchema, SuggestOptimalStockLevelsOutput, SuggestOptimalStockLevelsOutputSchema, AnalysisResultSchema } from '@/ai/schemas/stock-suggestion-schemas';
+import { SuggestOptimalStockLevelsInput, SuggestOptimalStockLevelsInputSchema, SuggestOptimalStockLevelsOutput, SuggestOptimalStockLevelsOutputSchema, AnalysisResultSchema, AnalysisResult } from '@/ai/schemas/stock-suggestion-schemas';
 
 // SECTION: AI Tool for Sales Analysis
 
@@ -79,41 +79,50 @@ const suggestStockFlow = ai.defineFlow(
     name: 'suggestOptimalStockLevelsFlow',
     inputSchema: SuggestOptimalStockLevelsInputSchema,
     outputSchema: SuggestOptimalStockLevelsOutputSchema,
-    // Add the tool to the flow's capabilities
-    tools: [analyzeSalesDataTool],
   },
   async (input) => {
     
-    // The prompt is now much simpler. It acts as an expert interpreting pre-analyzed data.
+    // Explicitly call the tool first to get the analysis data.
+    const analysisResult: AnalysisResult = await analyzeSalesDataTool(input);
+
     const llmResponse = await ai.generate({
       prompt: `You are an expert inventory management AI.
-        Your task is to provide a stock level suggestion based on the analysis of historical sales data.
+        Your task is to provide a stock level suggestion based on a pre-computed analysis of historical sales data.
 
         Here is the situation for the product "{{productName}}":
         - Current Stock: {{currentStock}}
         - Sales Period Analyzed: Last {{analysisPeriod}}
 
-        A tool has analyzed the sales data and provided the following summary. Use this as your primary source of truth.
-        - Use the 'analyzeSalesData' tool with the provided input to get the analysis.
+        Here is the pre-computed analysis summary:
+        - Total Units Sold: ${analysisResult.totalSold}
+        - Average Daily Sales: ${analysisResult.averageDailySales.toFixed(2)}
+        - Sales Trend: ${analysisResult.salesTrend}
+        - Peak Sales Days: ${analysisResult.peakDays.join(', ') || 'N/A'}
 
-        Based on the tool's output, your task is to:
+        Based on this analysis, your task is to:
         1.  **Formulate a stock suggestion:**
-            -   **Suggested Stock for Next Period:** Calculate a specific number of units to stock. Factor in the average daily sales, the trend, and add a buffer. A good starting point is (averageDailySales * 30) + safety stock.
-            -   **Safety Stock:** Recommend a buffer quantity. This should be higher for products with increasing or sporadic trends. A good baseline is 25% of the next period's stock.
-        2.  **Provide Reasoning:** Write a clear, step-by-step explanation for your suggestions. Explain how the trend, total sales, and peak days from the analysis influenced your final numbers.
+            -   **Suggested Stock for Next Period (nextPeriodStock):** Calculate a specific number of units to stock for a 30-day period. Use the formula: (averageDailySales * 30) + safety stock. Round this to the nearest whole number.
+            -   **Safety Stock:** Recommend a buffer quantity. A good baseline is 25% of the next period's stock, but adjust it based on the sales trend (e.g., higher for 'increasing', lower for 'decreasing'). Round this to the nearest whole number.
+        2.  **Provide Reasoning:** Write a clear, step-by-step explanation for your suggestions. Mention how the average sales and trend from the analysis influenced your final numbers.
         
-        Return the entire response in the required JSON format.`,
+        Return the entire response in the required JSON format, including the original analysis data provided.`,
       model: 'googleai/gemini-2.0-flash',
-      // Pass the necessary information for the tool and the prompt.
+      // Pass the necessary information for the prompt.
       context: {
         productName: input.productName,
         currentStock: input.currentStock,
         analysisPeriod: input.analysisPeriod,
-        salesData: input.salesData,
       },
       // Specify the desired output schema
       output: {
-        schema: SuggestOptimalStockLevelsOutputSchema,
+        schema: z.object({
+          productName: z.string(),
+          suggestion: z.object({
+            nextPeriodStock: z.number(),
+            safetyStock: z.number(),
+          }),
+          reasoning: z.string(),
+        }),
       },
     });
 
@@ -121,8 +130,12 @@ const suggestStockFlow = ai.defineFlow(
     if (!output) {
       throw new Error("AI failed to generate a valid stock suggestion.");
     }
-
-    return output;
+    
+    // Combine the analysis result with the AI's suggestion
+    return {
+        ...output,
+        analysis: analysisResult,
+    };
   }
 );
 
