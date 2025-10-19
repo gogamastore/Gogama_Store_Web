@@ -63,10 +63,13 @@ interface BankAccount {
     accountNumber: string;
 }
 
+type OrderStatus = 'delivered' | 'shipped' | 'processing' | 'pending' | 'cancelled';
+
+
 interface Order {
   id: string;
   customer: string;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  status: OrderStatus;
   paymentMethod: 'bank_transfer' | 'cod';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
@@ -264,10 +267,10 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
                         <div>
                             Status Pesanan: <Badge variant="outline" className={
-                                order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                                order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                                order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
-                                order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                                order.status === 'delivered' ? 'text-green-600 border-green-600' :
+                                order.status === 'shipped' ? 'text-blue-600 border-blue-600' :
+                                order.status === 'processing' ? 'text-yellow-600 border-yellow-600' : 
+                                order.status === 'cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
                             }>{order.status}</Badge>
                         </div>
                         <Separator orientation="vertical" className="h-4"/>
@@ -307,7 +310,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                         </CardContent>
                     </Card>
 
-                    {order.paymentStatus === 'Unpaid' && order.status !== 'Cancelled' && order.paymentMethod === 'bank_transfer' && (
+                    {order.paymentStatus === 'Unpaid' && order.status !== 'cancelled' && order.paymentMethod === 'bank_transfer' && (
                         <PaymentUploader order={order} onUploadSuccess={onUploadSuccess} />
                     )}
 
@@ -319,7 +322,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     <Button onClick={generatePdf} variant="secondary">
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
-                    {order.status === 'Processing' && (
+                    {order.status === 'processing' && (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive">
@@ -372,6 +375,7 @@ function OrderHistoryPageContent() {
         return {
             id: doc.id,
             ...data,
+            status: (data.status || 'pending').toLowerCase(),
             total,
           } as Order;
       });
@@ -396,11 +400,11 @@ function OrderHistoryPageContent() {
   }, [fetchOrders]);
   
   const filteredOrders = useMemo(() => {
-    const toProcess = orders.filter(o => o.status === 'Pending');
-    const processing = orders.filter(o => o.status === 'Processing');
-    const shipped = orders.filter(o => o.status === 'Shipped');
-    const delivered = orders.filter(o => o.status === 'Delivered');
-    const cancelled = orders.filter(o => o.status === 'Cancelled');
+    const toProcess = orders.filter(o => o.status === 'pending');
+    const processing = orders.filter(o => o.status === 'processing');
+    const shipped = orders.filter(o => o.status === 'shipped');
+    const delivered = orders.filter(o => o.status === 'delivered');
+    const cancelled = orders.filter(o => o.status === 'cancelled');
 
     return { toProcess, processing, shipped, delivered, cancelled };
   }, [orders]);
@@ -419,7 +423,7 @@ function OrderHistoryPageContent() {
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
-        if (order.products && order.status !== 'Cancelled') {
+        if (order.products && order.status !== 'cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
                 const productDoc = await getDoc(productRef);
@@ -469,7 +473,18 @@ function OrderHistoryPageContent() {
               {loading ? (
                    <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div>
               ) : orders.length > 0 ? (
-                  orders.map(order => (
+                  orders.map(order => {
+                        const statusDisplayMap: Record<OrderStatus, string> = {
+                            delivered: 'Selesai',
+                            shipped: 'Dikirim',
+                            processing: 'Diproses',
+                            pending: 'Belum Proses',
+                            cancelled: 'Dibatalkan',
+                        };
+
+                        const statusText = statusDisplayMap[order.status] || order.status;
+
+                      return (
                       <Card key={order.id} className="overflow-hidden">
                           <CardHeader className="p-4 bg-card flex-row items-center justify-between border-b">
                               <div className="text-sm text-muted-foreground">
@@ -499,11 +514,11 @@ function OrderHistoryPageContent() {
                                 <div>
                                     <span className="text-muted-foreground">Status: </span>
                                     <Badge variant="outline" className={
-                                          order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                                          order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                                          order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
-                                          order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
-                                      }>{order.status}</Badge>
+                                          order.status === 'delivered' ? 'text-green-600 border-green-600' :
+                                          order.status === 'shipped' ? 'text-blue-600 border-blue-600' :
+                                          order.status === 'processing' ? 'text-yellow-600 border-yellow-600' : 
+                                          order.status === 'cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                                      }>{statusText}</Badge>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-muted-foreground">Total</p>
@@ -521,7 +536,8 @@ function OrderHistoryPageContent() {
                                 )}
                           </CardFooter>
                       </Card>
-                  ))
+                      )
+                  })
               ) : (
                   <div className="text-center p-8 border rounded-lg">
                       <Package className="mx-auto h-12 w-12 text-muted-foreground"/>
