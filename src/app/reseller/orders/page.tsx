@@ -319,7 +319,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     <Button onClick={generatePdf} variant="secondary">
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
-                    {(order.status === 'Pending' || order.status === 'Processing') && (
+                    {order.status === 'Processing' && (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive">
