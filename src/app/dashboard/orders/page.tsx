@@ -797,6 +797,29 @@ export default function OrdersPage() {
     }
   };
 
+  const handleBulkMarkAsDelivered = async () => {
+    setIsProcessing('bulk-delivered');
+    const batch = writeBatch(db);
+    selectedOrders.forEach(orderId => {
+        const orderRef = doc(db, "orders", orderId);
+        batch.update(orderRef, { status: "Delivered" });
+    });
+    try {
+        await batch.commit();
+        toast({
+            title: "Pesanan Diperbarui",
+            description: `${selectedOrders.length} pesanan telah ditandai selesai.`
+        });
+        setSelectedOrders([]);
+        await fetchOrders();
+    } catch (error) {
+        console.error("Error updating orders in bulk:", error);
+        toast({ variant: "destructive", title: "Gagal memperbarui pesanan massal." });
+    } finally {
+        setIsProcessing(null);
+    }
+  }
+
 
   const handleCancelOrder = async (order: Order) => {
     setIsProcessing(order.id);
@@ -948,9 +971,15 @@ export default function OrdersPage() {
                     onCheckedChange={(checked) => handleSelectAllInTab(orders, !!checked)}
                     aria-label={`Pilih semua di tab ${tabName}`}
                 />
-                <Label htmlFor={`select-all-${tabName}`} className="text-sm font-medium">
+                <Label htmlFor={`select-all-${tabName}`} className="text-sm font-medium flex-1">
                     Pilih Semua ({selectedInTabCount} / {orders.length} terpilih)
                 </Label>
+                {tabName === 'shipped' && selectedOrders.length > 0 && (
+                     <Button size="sm" onClick={handleBulkMarkAsDelivered} disabled={isProcessing === 'bulk-delivered'}>
+                         {isProcessing === 'bulk-delivered' && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Tandai Selesai Massal
+                    </Button>
+                )}
             </div>
             <div className="space-y-4 mt-4">
                 {orders.length > 0 ? (
